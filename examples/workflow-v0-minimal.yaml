@@ -1,0 +1,48 @@
+schemaVersion: "0.1"
+id: example-onboarding
+version: 1.0.0
+title: Example onboarding
+description: Minimal v0 workflow for Maestro
+
+initialStepId: collect-profile
+terminalStepIds:
+  - done
+
+steps:
+  - id: collect-profile
+    kind: human
+    presentationRef: forms/collect-profile@v1
+    inputSchema:
+      type: object
+      required: [fullName]
+      properties:
+        fullName:
+          type: string
+    onEnter:
+      - type: stub
+        id: init-vars
+        params:
+          set:
+            stage: "profile"
+
+  - id: run-checks
+    kind: action
+    onEnter:
+      - type: stub
+        id: mark-checks-started
+        params:
+          set:
+            checksStarted: true
+
+  - id: done
+    kind: end
+
+transitions:
+  - from: collect-profile
+    to: run-checks
+    priority: 0
+
+  - from: run-checks
+    to: done
+    priority: 0
+    when: "variables.checksStarted == true"

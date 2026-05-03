@@ -1,0 +1,100 @@
+GOLANGCI_LINT_VERSION ?= v2.12.1
+GOFUMPT_VERSION ?= v0.9.2
+
+MODULE := github.com/justinushermawan/maestro
+
+GO ?= go
+GO_PACKAGES ?= $(shell $(GO) list ./...)
+
+DIST_DIR ?= dist
+BIN_NAME ?= maestro
+
+GO_INSTALL_BIN := $(shell $(GO) env GOBIN)
+ifeq ($(GO_INSTALL_BIN),)
+GO_INSTALL_BIN := $(shell $(GO) env GOPATH)/bin
+endif
+GOFUMPT := $(GO_INSTALL_BIN)/gofumpt
+GOLANGCI_LINT := $(GO_INSTALL_BIN)/golangci-lint
+
+CLI_MAIN := ./cmd/maestro
+
+VERSION ?= dev
+LDFLAGS ?= -X $(MODULE)/cli.Version=$(VERSION)
+
+.PHONY: help
+help:
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+.DEFAULT_GOAL := help
+
+##@ Dependencies
+
+.PHONY: tidy
+tidy:
+	$(GO) mod tidy
+
+.PHONY: install-golangci-lint
+install-golangci-lint:
+	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: install-gofumpt
+install-gofumpt:
+	@test -x "$(GOFUMPT)" || $(GO) install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)
+
+.PHONY: install-tools
+install-tools: install-golangci-lint install-gofumpt
+
+##@ Quality
+
+.PHONY: fmt
+fmt: install-gofumpt
+	"$(GOFUMPT)" -extra -w .
+
+.PHONY: vet
+vet:
+	$(GO) vet $(GO_PACKAGES)
+
+.PHONY: lint
+lint: install-golangci-lint
+	"$(GOLANGCI_LINT)" run
+
+.PHONY: lint-fix
+lint-fix: install-golangci-lint
+	"$(GOLANGCI_LINT)" run --fix
+
+.PHONY: check
+check: lint vet test
+
+##@ Test
+
+.PHONY: test
+test:
+	$(GO) test -count=1 ./...
+
+.PHONY: test-race
+test-race:
+	$(GO) test -count=1 -race ./...
+
+##@ Build
+
+.PHONY: build
+build:
+	@mkdir -p $(DIST_DIR)
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(DIST_DIR)/$(BIN_NAME) $(CLI_MAIN)
+
+.PHONY: install
+install:
+	CGO_ENABLED=0 $(GO) install -trimpath -ldflags '$(LDFLAGS)' $(CLI_MAIN)
+
+##@ Examples / smoke
+
+.PHONY: validate-example
+validate-example:
+	$(GO) run $(CLI_MAIN) validate -f examples/workflow-v0-minimal.yaml
+
+##@ Cleanup
+
+.PHONY: clean
+clean:
+	rm -rf $(DIST_DIR)
+	$(GO) clean -cache -testcache 2>/dev/null || true

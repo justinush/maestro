@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/justinushermawan/maestro/schemas/workflow-definition-v0.1.json",
+  "title": "Maestro Workflow Definition",
+  "description": "Normative schema for Maestro workflow definitions at revision 0.1. A conforming document describes the static control-flow graph, step metadata, and action bindings for the Maestro orchestration runtime. Structural validity is evaluated against this schema after the document is decoded from YAML or JSON. Additional constraints—such as referential integrity of step identifiers, absence of transitions originating from terminal steps, and reachability—MAY be enforced by the runtime or tooling beyond JSON Schema validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "initialStepId",
+    "terminalStepIds",
+    "steps",
+    "transitions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1",
+      "description": "Revision of the Maestro workflow definition language implemented by this document. Runtimes SHALL reject documents whose value is not supported by the implementation."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable, implementation-defined identifier for this workflow definition (for example a namespaced slug). Uniqueness is scoped by the deployment or tenant policy; this schema requires only a non-empty string."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Semantic version of this definition artifact, following Semantic Versioning 2.0.0. Authors SHOULD serialize this value as a string in YAML to avoid ambiguous scalar coercion."
+    },
+    "title": {
+      "type": "string",
+      "description": "Concise, human-readable title suitable for catalogs, audit summaries, and operator interfaces."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional narrative describing the purpose, scope, or compliance context of this workflow. Intended for documentation and review; not interpreted by the runtime."
+    },
+    "initialStepId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the step at which new workflow instances SHALL begin execution. MUST match the `id` of exactly one entry in `steps`."
+    },
+    "terminalStepIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Non-empty set of step identifiers that denote terminal completion of the workflow for this definition. Each listed id SHOULD correspond to a step whose `kind` is `end`; consistency between `kind` and membership in this list MAY be validated outside this schema.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Step identifier; MUST exist in `steps[].id`."
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Declarative list of workflow steps (vertices). Each step has a unique `id` within the document; referential uniqueness is not expressed in JSON Schema and SHOULD be validated by tooling or the runtime.",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "description": "Directed control-flow edges between steps. The runtime evaluates applicable transitions from the current step in an implementation-defined order, subject to `priority` and guard evaluation when present.",
+      "items": {
+        "$ref": "#/$defs/transition"
+      }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "description": "A single unit of work in the workflow graph. The `kind` determines how the runtime schedules user interaction, automated actions, or termination.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique step identifier within this definition. Referenced by `initialStepId`, `terminalStepIds`, and transition endpoints."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["human", "action", "end"],
+          "description": "Discriminator for runtime behavior: `human` denotes a channel-presented task requiring end-user or operator input; `action` denotes an automated step driven by `onEnter`/`onExit` actions; `end` denotes a terminal step with no outbound transitions."
+        },
+        "presentationRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque, versioned reference to presentation assets (forms, screens, or channel-specific bundles). REQUIRED when `kind` is `human`. The Maestro core does not resolve this reference; channel adapters SHALL map it to concrete UI or API contracts."
+        },
+        "inputSchema": {
+          "type": "object",
+          "description": "JSON Schema document describing the payload accepted when a subject or channel submits input for this step. Used to validate `submitUserInput` (or equivalent) before merging into instance state. The JSON Schema dialect (draft) is a deployment concern and SHOULD be documented by the implementation."
+        },
+        "onEnter": {
+          "$ref": "#/$defs/actionList",
+          "description": "Ordered list of actions the runtime SHALL execute when control enters this step, before waiting for input or proceeding."
+        },
+        "onExit": {
+          "$ref": "#/$defs/actionList",
+          "description": "Ordered list of actions the runtime MAY execute when control leaves this step toward a successor. Execution semantics (synchronous vs asynchronous, compensation) are implementation-defined in revision 0.1."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "human"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["presentationRef"]
+          }
+        }
+      ]
+    },
+    "actionList": {
+      "type": "array",
+      "description": "Sequence of side effects invoked at a step boundary. Fail-fast vs partial completion behavior is defined by the runtime.",
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "description": "A named side effect executed by the runtime. Revision 0.1 defines the `stub` type for testing and variable seeding; additional types MAY be introduced in later schema revisions.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["stub"],
+          "description": "Action implementation selector. Value `stub` indicates a no-external-I/O action used for initialization, simulation, and tests."
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier for this action occurrence within the definition, used for logging, metrics, and audit correlation."
+        },
+        "params": {
+          "type": "object",
+          "description": "Type-specific parameters. For `type: stub`, implementations SHOULD treat `params.set` as an object whose keys are variable paths and whose values are JSON values merged into the workflow instance context according to runtime rules."
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "description": "A control-flow edge from a source step to a target step. Guards, when present, SHALL be evaluated against the workflow instance context; the first matching transition in evaluation order determines the successor unless the runtime specifies otherwise.",
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source step identifier; MUST reference an existing `steps[].id`."
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Target step identifier; MUST reference an existing `steps[].id`."
+        },
+        "when": {
+          "type": "string",
+          "description": "Guard expression. Implementations SHALL use Common Expression Language (CEL) unless a different policy is documented. If omitted or empty, the transition SHALL be treated as unconditional when evaluated."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Relative ordering key for transitions sharing the same `from` step. Lower values SHALL be considered before higher values when the runtime performs deterministic ordering; the default when omitted is implementation-defined and SHOULD be documented."
+        }
+      }
+    }
+  }
+}
