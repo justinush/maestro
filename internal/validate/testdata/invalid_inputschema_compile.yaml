@@ -1,0 +1,19 @@
+schemaVersion: "0.1"
+id: inputschema-bad
+version: "1.0.0"
+initialStepId: a
+terminalStepIds:
+  - e
+steps:
+  - id: a
+    kind: human
+    presentationRef: p
+    inputSchema:
+      type: number
+      minimum: "not-a-number"
+  - id: e
+    kind: end
+transitions:
+  - from: a
+    to: e
+    priority: 0

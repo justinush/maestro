@@ -1,0 +1,26 @@
+schemaVersion: "0.1"
+id: unreachable-demo
+version: "1.0.0"
+initialStepId: a
+terminalStepIds:
+  - e
+steps:
+  - id: a
+    kind: human
+    presentationRef: forms/x@v1
+  - id: b
+    kind: action
+  - id: c
+    kind: action
+  - id: e
+    kind: end
+transitions:
+  - from: a
+    to: b
+    priority: 0
+  - from: b
+    to: e
+    priority: 0
+  - from: c
+    to: c
+    priority: 0
