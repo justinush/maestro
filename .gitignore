@@ -34,3 +34,5 @@ docker-compose.yml
 extras/
 /build/
 /dist/
+.DS_Store
+**/.DS_Store
