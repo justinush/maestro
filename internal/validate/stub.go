@@ -1,35 +1,12 @@
 package validate
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/justinush/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/stub"
 )
-
-type stubParams struct {
-	Set map[string]json.RawMessage `json:"set,omitempty"`
-}
-
-// decodeStubParams parses stub params with unknown field rejection and no trailing JSON.
-func decodeStubParams(data []byte) (stubParams, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	var p stubParams
-	if err := dec.Decode(&p); err != nil {
-		return stubParams{}, err
-	}
-	var tail json.RawMessage
-	if err := dec.Decode(&tail); err != nil {
-		if err == io.EOF {
-			return p, nil
-		}
-		return stubParams{}, err
-	}
-	return stubParams{}, fmt.Errorf("trailing JSON after params object")
-}
 
 // validateStubActions checks stub params and set values on every step's onEnter and onExit lists.
 func validateStubActions(def *definition.WorkflowDefinition) error {
@@ -58,7 +35,7 @@ func validateActionListStub(stepID, listName string, actions []definition.Action
 		if len(a.Params) == 0 {
 			continue
 		}
-		p, err := decodeStubParams(a.Params)
+		p, err := stub.DecodeParams(a.Params)
 		if err != nil {
 			return fmt.Errorf(
 				"step %q %s[%d] action id=%q type=stub: params: %w",

@@ -24,6 +24,8 @@ type Instance struct {
 
 	stepsByID map[string]definition.Step
 	terminal  map[string]struct{}
+
+	onEnterRan bool
 }
 
 // NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
@@ -70,6 +72,7 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 		variables:     vars,
 		stepsByID:     stepsByID,
 		terminal:      term,
+		onEnterRan:    false,
 	}, nil
 }
 
