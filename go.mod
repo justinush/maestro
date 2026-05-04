@@ -1,4 +1,4 @@
-module github.com/justinushermawan/maestro
+module github.com/justinush/maestro
 
 go 1.26.2
 

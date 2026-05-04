@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/justinushermawan/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/definition"
 )
 
 type stubParams struct {
 	Set map[string]json.RawMessage `json:"set,omitempty"`
 }
 
+// decodeStubParams parses stub params with unknown field rejection and no trailing JSON.
 func decodeStubParams(data []byte) (stubParams, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
@@ -30,6 +31,7 @@ func decodeStubParams(data []byte) (stubParams, error) {
 	return stubParams{}, fmt.Errorf("trailing JSON after params object")
 }
 
+// validateStubActions checks stub params and set values on every step's onEnter and onExit lists.
 func validateStubActions(def *definition.WorkflowDefinition) error {
 	if def == nil {
 		return nil
@@ -46,6 +48,7 @@ func validateStubActions(def *definition.WorkflowDefinition) error {
 	return nil
 }
 
+// validateActionListStub validates stub actions in one onEnter/onExit list.
 func validateActionListStub(stepID, listName string, actions []definition.Action) error {
 	for ai := range actions {
 		a := actions[ai]

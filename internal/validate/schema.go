@@ -6,13 +6,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/justinushermawan/maestro/internal/definition"
-	"github.com/justinushermawan/maestro/schemas"
+	"github.com/justinush/maestro/internal/definition"
+	"github.com/justinush/maestro/schemas"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-const workflowSchemaURI = "https://github.com/justinushermawan/maestro/schemas/workflow-definition-v0.1.json"
+// workflowSchemaURI is the canonical $id for the embedded workflow-definition v0.1 schema.
+const workflowSchemaURI = "https://github.com/justinush/maestro/schemas/workflow-definition-v0.1.json"
 
+// jsonInstanceForSchema builds the JSON object jsonschema validates against.
 func jsonInstanceForSchema(def *definition.WorkflowDefinition) (map[string]any, error) {
 	b, err := json.Marshal(def)
 	if err != nil {
@@ -25,6 +27,7 @@ func jsonInstanceForSchema(def *definition.WorkflowDefinition) (map[string]any, 
 	return m, nil
 }
 
+// schemaRootURI picks the compiler root; schema $id, else the schema file path, else embeddedFallback.
 func schemaRootURI(schemaPath string, schemaDoc map[string]any, embeddedFallback string) string {
 	if v, ok := schemaDoc["$id"].(string); ok {
 		if s := strings.TrimSpace(v); s != "" {
@@ -37,6 +40,7 @@ func schemaRootURI(schemaPath string, schemaDoc map[string]any, embeddedFallback
 	return embeddedFallback
 }
 
+// formatSchemaErr wraps a schema error; verbose appends the raw library message.
 func formatSchemaErr(context string, verbose bool, err error) error {
 	if err == nil {
 		return nil
@@ -47,6 +51,7 @@ func formatSchemaErr(context string, verbose bool, err error) error {
 	return fmt.Errorf("%s: %w\n(full) %s", context, err, err.Error())
 }
 
+// validateJSONSchema validates def against the embedded v0.1 workflow schema.
 func validateJSONSchema(def *definition.WorkflowDefinition, verbose bool) error {
 	var schemaDoc map[string]any
 	if err := json.Unmarshal(schemas.WorkflowDefinitionV01, &schemaDoc); err != nil {
@@ -74,6 +79,7 @@ func validateJSONSchema(def *definition.WorkflowDefinition, verbose bool) error 
 	return nil
 }
 
+// validateJSONSchemaFromPath validates def against the JSON Schema file at schemaPath.
 func validateJSONSchemaFromPath(def *definition.WorkflowDefinition, schemaPath, embeddedIDFallback string, verbose bool) error {
 	b, err := os.ReadFile(schemaPath)
 	if err != nil {

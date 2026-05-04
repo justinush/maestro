@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justinushermawan/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/definition"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
+// validateInputSchemas compiles each non-empty step inputSchema as a standalone JSON Schema root.
 func validateInputSchemas(def *definition.WorkflowDefinition, verbose bool) error {
 	if def == nil {
 		return nil

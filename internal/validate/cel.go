@@ -5,9 +5,10 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
-	"github.com/justinushermawan/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/definition"
 )
 
+// validateCELGuards compiles each non-empty transition when with the same CEL bindings as the engine expects.
 func validateCELGuards(def *definition.WorkflowDefinition, verbose bool) error {
 	if def == nil {
 		return nil

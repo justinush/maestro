@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/justinushermawan/maestro/cli/simulate"
-	"github.com/justinushermawan/maestro/cli/validate"
+	"github.com/justinush/maestro/cli/simulate"
+	"github.com/justinush/maestro/cli/validate"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/justinushermawan/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/workflowgraph"
 )
 
 type transitionKey struct {
@@ -13,6 +14,7 @@ type transitionKey struct {
 	priority int
 }
 
+// validateGraph checks step ids, terminals, transitions, and reachability from initialStepId.
 func validateGraph(def *definition.WorkflowDefinition) error {
 	if def == nil {
 		return errors.New("graph: definition is nil")
@@ -43,33 +45,8 @@ func validateGraph(def *definition.WorkflowDefinition) error {
 		return fmt.Errorf("graph: initialStepId %q not found in steps", def.InitialStepID)
 	}
 
-	if len(def.TerminalStepIDs) == 0 {
-		return errors.New("graph: terminalStepIds must be non-empty")
-	}
-	termSet := make(map[string]struct{}, len(def.TerminalStepIDs))
-	for _, id := range def.TerminalStepIDs {
-		if id == "" {
-			return errors.New("graph: terminalStepIds entries must be non-empty strings")
-		}
-		if _, dup := termSet[id]; dup {
-			return fmt.Errorf("graph: duplicate terminalStepIds entry %q", id)
-		}
-		termSet[id] = struct{}{}
-		kind, exists := stepKinds[id]
-		if !exists {
-			return fmt.Errorf("graph: terminal step id %q not found in steps", id)
-		}
-		if kind != definition.StepKindEnd {
-			return fmt.Errorf("graph: terminalStepIds entry %q must have kind \"end\", got %q", id, kind)
-		}
-	}
-	for id, kind := range stepKinds {
-		if kind != definition.StepKindEnd {
-			continue
-		}
-		if _, ok := termSet[id]; !ok {
-			return fmt.Errorf("graph: step %q has kind \"end\" but is not listed in terminalStepIds", id)
-		}
+	if _, err := workflowgraph.BuildTerminalSet(def.TerminalStepIDs, stepKinds); err != nil {
+		return fmt.Errorf("graph: %w", err)
 	}
 
 	outgoing := make(map[string]int)
@@ -117,6 +94,7 @@ func validateGraph(def *definition.WorkflowDefinition) error {
 	return nil
 }
 
+// validateReachability ensures every step appears in the BFS closure from initialStepId.
 func validateReachability(def *definition.WorkflowDefinition, stepKinds map[string]definition.StepKind) error {
 	adj := make(map[string][]string)
 	for i := range def.Transitions {

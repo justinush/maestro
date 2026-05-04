@@ -3,7 +3,7 @@ package validate
 import (
 	"errors"
 
-	apivalidate "github.com/justinushermawan/maestro/internal/validate"
+	apivalidate "github.com/justinush/maestro/internal/validate"
 	"github.com/spf13/cobra"
 )
 

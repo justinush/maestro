@@ -3,9 +3,10 @@ package validate
 import (
 	"errors"
 
-	"github.com/justinushermawan/maestro/internal/definition"
+	"github.com/justinush/maestro/internal/definition"
 )
 
+// Workflow loads a definition from path and runs schema, graph, CEL, stub, and inputSchema checks.
 func Workflow(path string, opts Options) error {
 	def, err := definition.DecodeFile(path)
 	if err != nil {

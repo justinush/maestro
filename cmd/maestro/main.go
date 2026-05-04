@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/justinushermawan/maestro/cli"
+	"github.com/justinush/maestro/cli"
 )
 
 func main() {
