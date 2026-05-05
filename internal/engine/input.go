@@ -8,7 +8,8 @@ import (
 )
 
 // SubmitInput merges input into variables (top-level keys only) and advances out of the current human step.
-// It runs onExit for human step, takes the first matching transition, and positions the instance on the next step.
+// It validates input against the step's inputSchema (if present), runs onExit, chooses the first matching
+// transition, and positions the instance on the next step. Call RunUntilBlocked() afterwards to continue.
 func (in *Instance) SubmitInput(input map[string]any) error {
 	if in == nil {
 		return ErrNilDefinition
@@ -28,6 +29,11 @@ func (in *Instance) SubmitInput(input map[string]any) error {
 			return err
 		}
 		in.onEnterRan = true
+	}
+
+	// Enforce inputSchema before mutation.
+	if err := in.validateInputSchema(st, input); err != nil {
+		return err
 	}
 
 	// Shallow merge user input into variables.

@@ -215,6 +215,65 @@ func TestEngine_TransitionOrderingByPriorityThenDeclaration(t *testing.T) {
 	}
 }
 
+func TestEngine_SubmitInput_EnforcesInputSchema(t *testing.T) {
+	t.Parallel()
+
+	def := &definition.WorkflowDefinition{
+		SchemaVersion:   "0.1",
+		ID:              "t",
+		Version:         "1",
+		InitialStepID:   "collect",
+		TerminalStepIDs: []string{"done"},
+		Steps: []definition.Step{
+			{
+				ID:              "collect",
+				Kind:            definition.StepKindHuman,
+				PresentationRef: "forms/x@v1",
+				InputSchema: mustRawJSON(t, map[string]any{
+					"type":     "object",
+					"required": []any{"fullName"},
+					"properties": map[string]any{
+						"fullName": map[string]any{
+							"type": "string",
+						},
+					},
+					"additionalProperties": false,
+				}),
+			},
+			{ID: "done", Kind: definition.StepKindEnd},
+		},
+		Transitions: []definition.Transition{
+			{From: "collect", To: "done", Priority: 0},
+		},
+	}
+
+	in, err := NewInstance(def, Options{})
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+	if err := in.RunUntilBlocked(); !errors.Is(err, ErrNeedsInput) {
+		t.Fatalf("RunUntilBlocked: want ErrNeedsInput, got %v", err)
+	}
+
+	// Missing required fullName => should fail.
+	err = in.SubmitInput(map[string]any{})
+	if err == nil {
+		t.Fatal("expected input schema error")
+	}
+	var ive *InputValidationError
+	if !errors.As(err, &ive) {
+		t.Fatalf("expected InputValidationError, got %T: %v", err, err)
+	}
+	if ive.StepID != "collect" {
+		t.Fatalf("StepID: want %q, got %q", "collect", ive.StepID)
+	}
+
+	// Valid payload should pass.
+	if err := in.SubmitInput(map[string]any{"fullName": "Justin"}); err != nil {
+		t.Fatalf("SubmitInput(valid): %v", err)
+	}
+}
+
 func mustRawJSON(t *testing.T, v any) definition.RawJSON {
 	t.Helper()
 	b, err := marshalToRawJSON(v)

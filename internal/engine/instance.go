@@ -26,6 +26,8 @@ type Instance struct {
 	terminal  map[string]struct{}
 
 	onEnterRan bool
+
+	inputSchemas inputSchemaCache
 }
 
 // NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
