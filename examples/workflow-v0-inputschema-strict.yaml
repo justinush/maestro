@@ -1,0 +1,29 @@
+schemaVersion: "0.1"
+id: example-inputschema-strict
+version: 1.0.0
+title: Example inputSchema strict
+description: Minimal workflow to exercise runtime inputSchema enforcement
+
+initialStepId: collect-profile
+terminalStepIds:
+  - done
+
+steps:
+  - id: collect-profile
+    kind: human
+    presentationRef: forms/collect-profile@v1
+    inputSchema:
+      type: object
+      required: [fullName]
+      additionalProperties: false
+      properties:
+        fullName:
+          type: string
+
+  - id: done
+    kind: end
+
+transitions:
+  - from: collect-profile
+    to: done
+    priority: 0

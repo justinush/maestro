@@ -1,0 +1,8 @@
+workflow: examples/workflow-v0-inputschema-strict.yaml
+validate: true
+
+inputs:
+  - stepId: collect-profile
+    data: {}
+
+expectErrorContains: 'inputSchema validation failed'
