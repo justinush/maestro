@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/google/cel-go/cel"
 	"github.com/justinush/maestro/internal/definition"
 	"github.com/justinush/maestro/internal/workflowgraph"
 )
@@ -28,6 +29,8 @@ type Instance struct {
 	onEnterRan bool
 
 	inputSchemas inputSchemaCache
+
+	celPrograms map[int]cel.Program
 }
 
 // NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
