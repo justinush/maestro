@@ -6,6 +6,9 @@ import (
 	"github.com/justinush/maestro/internal/definition"
 )
 
+// RunUntilBlocked drives execution forward until it reaches a stop condition.
+// It returns ErrNeedsInput when blocked on a human step, ErrWorkflowCompleted when the
+// instance reaches a terminal end step, and a non-nil error for any execution failure.
 func (in *Instance) RunUntilBlocked() error {
 	if in == nil {
 		return ErrNilDefinition
