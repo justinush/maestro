@@ -4,3 +4,7 @@ inputs:
   - stepId: collect-profile
     data:
       fullName: "Justin H"
+
+expectFinalStep: done
+expectVariables:
+  checksStarted: true

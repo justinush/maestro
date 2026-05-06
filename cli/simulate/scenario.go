@@ -13,14 +13,17 @@ import (
 )
 
 type Scenario struct {
-	Workflow         string              `json:"workflow" yaml:"workflow"`
-	Validate         *bool               `json:"validate,omitempty" yaml:"validate,omitempty"`
-	InitialVariables map[string]any      `json:"initialVariables,omitempty" yaml:"initialVariables,omitempty"`
-	Inputs           []ScenarioStepInput `json:"inputs,omitempty" yaml:"inputs,omitempty"`
-	MaxSteps         int                 `json:"maxSteps,omitempty" yaml:"maxSteps,omitempty"`
+	Workflow            string         `json:"workflow" yaml:"workflow"`
+	Validate            *bool          `json:"validate,omitempty" yaml:"validate,omitempty"`
+	InitialVariables    map[string]any `json:"initialVariables,omitempty" yaml:"initialVariables,omitempty"`
+	Inputs              []StepInput    `json:"inputs,omitempty" yaml:"inputs,omitempty"`
+	MaxSteps            int            `json:"maxSteps,omitempty" yaml:"maxSteps,omitempty"`
+	ExpectFinalStep     string         `json:"expectFinalStep,omitempty" yaml:"expectFinalStep,omitempty"`
+	ExpectVariables     map[string]any `json:"expectVariables,omitempty" yaml:"expectVariables,omitempty"`
+	ExpectErrorContains string         `json:"expectErrorContains,omitempty" yaml:"expectErrorContains,omitempty"`
 }
 
-type ScenarioStepInput struct {
+type StepInput struct {
 	StepID string         `json:"stepId" yaml:"stepId"`
 	Data   map[string]any `json:"data" yaml:"data"`
 }
