@@ -35,6 +35,12 @@ func (in *Instance) pickFirstFiringTransition(fromID string) (string, error) {
 			return "", fmt.Errorf("transition %d from=%q to=%q: %w", ti, t.From, t.To, err)
 		}
 		if ok {
+			in.record(Event{
+				Type:            EventTransitionTaken,
+				TransitionIndex: ti,
+				FromStepID:      t.From,
+				ToStepID:        t.To,
+			})
 			return t.To, nil
 		}
 	}

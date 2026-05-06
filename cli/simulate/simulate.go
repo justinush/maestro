@@ -14,6 +14,7 @@ import (
 
 func NewCommand() *cobra.Command {
 	var scenarioPath string
+	var trace bool
 
 	cmd := &cobra.Command{
 		Use:   "simulate",
@@ -23,15 +24,16 @@ func NewCommand() *cobra.Command {
 			if scenarioPath == "" {
 				return errors.New("required flag: --scenario / -s")
 			}
-			return runScenario(cmd, scenarioPath)
+			return runScenario(cmd, scenarioPath, trace)
 		},
 	}
 
 	cmd.Flags().StringVarP(&scenarioPath, "scenario", "s", "", "path to simulation scenario file (.yaml, .yml, or .json)")
+	cmd.Flags().BoolVar(&trace, "trace", false, "print engine execution trace")
 	return cmd
 }
 
-func runScenario(cmd *cobra.Command, scenarioPath string) error {
+func runScenario(cmd *cobra.Command, scenarioPath string, trace bool) error {
 	sc, err := DecodeScenario(scenarioPath)
 	if err != nil {
 		return err
@@ -65,26 +67,45 @@ func runScenario(cmd *cobra.Command, scenarioPath string) error {
 		err := in.RunUntilBlocked()
 		switch {
 		case err == nil:
+			if trace {
+				printTrace(cmd, in)
+			}
 			return fmt.Errorf("simulate: stopped without error at step %q", in.CurrentStepID())
 
 		case errors.Is(err, engine.ErrWorkflowCompleted):
+			if trace {
+				printTrace(cmd, in)
+			}
 			return checkScenarioAssertionsOnCompletion(cmd, sc, in)
 
 		case errors.Is(err, engine.ErrNeedsInput):
 			stepID := in.CurrentStepID()
 			if inputIdx >= len(sc.Inputs) {
+				if trace {
+					printTrace(cmd, in)
+				}
 				return fmt.Errorf("simulate: step %q needs input but scenario has no more inputs", stepID)
 			}
+
 			next := sc.Inputs[inputIdx]
 			inputIdx++
 
 			if next.StepID != "" && next.StepID != stepID {
+				if trace {
+					printTrace(cmd, in)
+				}
 				return fmt.Errorf("simulate: expected input for step %q, got input for %q", stepID, next.StepID)
 			}
 
 			if err := in.SubmitInput(next.Data); err != nil {
 				if sc.ExpectErrorContains != "" {
+					if trace {
+						printTrace(cmd, in)
+					}
 					return checkScenarioAssertionsOnError(cmd, sc, err)
+				}
+				if trace {
+					printTrace(cmd, in)
 				}
 				return err
 			}
@@ -92,13 +113,28 @@ func runScenario(cmd *cobra.Command, scenarioPath string) error {
 
 		default:
 			if sc.ExpectErrorContains != "" {
+				if trace {
+					printTrace(cmd, in)
+				}
 				return checkScenarioAssertionsOnError(cmd, sc, err)
+			}
+			if trace {
+				printTrace(cmd, in)
 			}
 			return err
 		}
 	}
 
+	if trace {
+		printTrace(cmd, in)
+	}
 	return fmt.Errorf("simulate: exceeded maxSteps=%d (possible loop)", stepLimit)
+}
+
+func printTrace(cmd *cobra.Command, in *engine.Instance) {
+	for _, ev := range in.Events() {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), ev.String())
+	}
 }
 
 func checkScenarioAssertionsOnCompletion(cmd *cobra.Command, sc *Scenario, in *engine.Instance) error {

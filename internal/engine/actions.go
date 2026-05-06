@@ -21,6 +21,13 @@ func (in *Instance) runActionList(stepID, listName string, actions []definition.
 		switch a.Type {
 		case "stub":
 			if len(a.Params) == 0 {
+				in.record(Event{
+					Type:       EventActionRan,
+					StepID:     stepID,
+					ActionList: listName,
+					ActionID:   a.ID,
+					ActionType: a.Type,
+				})
 				continue
 			}
 			p, err := stub.DecodeParams(a.Params)
@@ -30,6 +37,13 @@ func (in *Instance) runActionList(stepID, listName string, actions []definition.
 			if err := applyStubSet(in.variables, p); err != nil {
 				return fmt.Errorf("step %q %s[%d] action %q: %w", stepID, listName, i, a.ID, err)
 			}
+			in.record(Event{
+				Type:       EventActionRan,
+				StepID:     stepID,
+				ActionList: listName,
+				ActionID:   a.ID,
+				ActionType: a.Type,
+			})
 		default:
 			return fmt.Errorf("%w: step %q %s[%d] action %q type %q", ErrUnknownActionType, stepID, listName, i, a.ID, a.Type)
 		}

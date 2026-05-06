@@ -31,6 +31,9 @@ type Instance struct {
 	inputSchemas inputSchemaCache
 
 	celPrograms map[int]cel.Program
+
+	events  []Event
+	nextSeq int
 }
 
 // NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
@@ -78,6 +81,8 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 		stepsByID:     stepsByID,
 		terminal:      term,
 		onEnterRan:    false,
+		events:        nil,
+		nextSeq:       0,
 	}, nil
 }
 
@@ -165,4 +170,18 @@ func shallowCopyMap(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
 	maps.Copy(out, m)
 	return out
+}
+
+// Events returns a snapshot of the execution trace so far.
+func (in *Instance) Events() []Event {
+	if in == nil {
+		return nil
+	}
+	return append([]Event(nil), in.events...)
+}
+
+func (in *Instance) record(ev Event) {
+	in.nextSeq++
+	ev.Seq = in.nextSeq
+	in.events = append(in.events, ev)
 }

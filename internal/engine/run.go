@@ -20,6 +20,8 @@ func (in *Instance) RunUntilBlocked() error {
 			return err
 		}
 
+		in.record(Event{Type: EventStepEntered, StepID: st.ID})
+
 		if !in.onEnterRan {
 			if err := in.runOnEnterActions(st); err != nil {
 				return err
@@ -29,10 +31,12 @@ func (in *Instance) RunUntilBlocked() error {
 
 		switch st.Kind {
 		case definition.StepKindHuman:
+			in.record(Event{Type: EventBlocked, StepID: st.ID})
 			return ErrNeedsInput
 
 		case definition.StepKindEnd:
 			if in.IsTerminal() {
+				in.record(Event{Type: EventCompleted, StepID: st.ID})
 				return ErrWorkflowCompleted
 			}
 			return fmt.Errorf("engine: step %q has kind end but is not a declared terminal", st.ID)

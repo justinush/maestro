@@ -36,6 +36,12 @@ func (in *Instance) SubmitInput(input map[string]any) error {
 		return err
 	}
 
+	keys := make([]string, 0, len(input))
+	for k := range input {
+		keys = append(keys, k)
+	}
+	in.record(Event{Type: EventInputAccepted, StepID: st.ID, InputKeys: keys})
+
 	// Shallow merge user input into variables.
 	for k, v := range input {
 		if k == "" {
