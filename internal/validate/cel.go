@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/cel-go/cel"
+	"github.com/justinush/maestro/internal/celenv"
 	"github.com/justinush/maestro/internal/definition"
 )
 
-// validateCELGuards compiles each non-empty transition when with the same CEL bindings as the engine expects.
+// validateCELGuards compiles each non-empty transition when with the shared CEL bindings.
 func validateCELGuards(def *definition.WorkflowDefinition, verbose bool) error {
 	if def == nil {
 		return nil
 	}
-	env, err := cel.NewEnv(
-		cel.Variable("variables", cel.MapType(cel.StringType, cel.DynType)),
-	)
+
+	env, err := celenv.New()
 	if err != nil {
 		return fmt.Errorf("cel: create environment: %w", err)
 	}
+
 	for i := range def.Transitions {
 		expr := strings.TrimSpace(def.Transitions[i].When)
 		if expr == "" {

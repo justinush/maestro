@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/google/cel-go/cel"
+	"github.com/justinush/maestro/internal/celenv"
 )
 
 // pickFirstFiringTransition returns the target step for the first matching transition
@@ -46,16 +46,16 @@ func evalWhen(expr string, variables map[string]any) (bool, error) {
 		return true, nil
 	}
 
-	env, err := cel.NewEnv(
-		cel.Variable("variables", cel.MapType(cel.StringType, cel.DynType)),
-	)
+	env, err := celenv.New()
 	if err != nil {
 		return false, fmt.Errorf("cel env: %w", err)
 	}
+
 	ast, iss := env.Compile(expr)
 	if iss != nil && iss.Err() != nil {
 		return false, fmt.Errorf("cel compile: %w", iss.Err())
 	}
+
 	prg, err := env.Program(ast)
 	if err != nil {
 		return false, fmt.Errorf("cel program: %w", err)

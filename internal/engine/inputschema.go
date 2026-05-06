@@ -52,6 +52,7 @@ func (c *inputSchemaCache) getOrCompile(step definition.Step) (*jsonschema.Schem
 	return sch, nil
 }
 
+// validateInputSchema validates input against step.InputSchema (if any).
 func (in *Instance) validateInputSchema(step *definition.Step, input map[string]any) error {
 	if in == nil {
 		return ErrNilDefinition
