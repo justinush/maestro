@@ -2,7 +2,7 @@ package engine
 
 import "fmt"
 
-// InputValidationError indicates user input failed the step inputSchema.
+// InputValidationError indicates user input failed a step inputSchema.
 type InputValidationError struct {
 	StepID string
 	Err    error

@@ -10,23 +10,27 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
+type cachedInputSchema struct {
+	compiled bool
+	schema   *jsonschema.Schema // nil when no schema (accept any input)
+}
+
 type inputSchemaCache struct {
 	mu   sync.Mutex
-	byID map[string]*jsonschema.Schema
+	byID map[string]cachedInputSchema
 }
 
 func (c *inputSchemaCache) getOrCompile(step definition.Step) (*jsonschema.Schema, error) {
 	if c.byID == nil {
-		c.byID = make(map[string]*jsonschema.Schema)
+		c.byID = make(map[string]cachedInputSchema)
 	}
-	if sch, ok := c.byID[step.ID]; ok {
-		return sch, nil
+	if ent, ok := c.byID[step.ID]; ok && ent.compiled {
+		return ent.schema, nil
 	}
 
 	raw := strings.TrimSpace(string(step.InputSchema))
 	if len(step.InputSchema) == 0 || raw == "" || raw == "null" {
-		// No schema => accept any input.
-		c.byID[step.ID] = nil
+		c.byID[step.ID] = cachedInputSchema{compiled: true, schema: nil}
 		return nil, nil
 	}
 
@@ -48,17 +52,20 @@ func (c *inputSchemaCache) getOrCompile(step definition.Step) (*jsonschema.Schem
 		return nil, fmt.Errorf("inputSchema step %q: compile JSON Schema: %w", step.ID, err)
 	}
 
-	c.byID[step.ID] = sch
+	c.byID[step.ID] = cachedInputSchema{compiled: true, schema: sch}
 	return sch, nil
 }
 
-// validateInputSchema validates input against step.InputSchema (if any).
 func (in *Instance) validateInputSchema(step *definition.Step, input map[string]any) error {
 	if in == nil {
 		return ErrNilDefinition
 	}
 	if step == nil {
 		return fmt.Errorf("engine: step is nil")
+	}
+
+	if input == nil {
+		input = map[string]any{}
 	}
 
 	in.inputSchemas.mu.Lock()
