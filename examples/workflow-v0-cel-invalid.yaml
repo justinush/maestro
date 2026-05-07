@@ -1,0 +1,21 @@
+schemaVersion: "0.1"
+id: example-cel-invalid
+version: 1.0.0
+title: CEL invalid
+description: Validate should fail due to invalid CEL syntax
+
+initialStepId: a
+terminalStepIds: [done]
+
+steps:
+  - id: a
+    kind: action
+
+  - id: done
+    kind: end
+
+transitions:
+  - from: a
+    to: done
+    priority: 0
+    when: "%%%"

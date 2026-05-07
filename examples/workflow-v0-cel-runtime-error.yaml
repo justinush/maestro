@@ -1,0 +1,27 @@
+schemaVersion: "0.1"
+id: example-cel-runtime-error
+version: 1.0.0
+title: CEL runtime error
+description: Guard compiles but fails at runtime due to type mismatch
+
+initialStepId: set
+terminalStepIds: [done]
+
+steps:
+  - id: set
+    kind: action
+    onEnter:
+      - type: stub
+        id: set-wrong-type
+        params:
+          set:
+            checksStarted: true
+
+  - id: done
+    kind: end
+
+transitions:
+  - from: set
+    to: done
+    priority: 0
+    when: 'variables.checksStarted.startsWith("y")'

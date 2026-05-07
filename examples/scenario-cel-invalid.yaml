@@ -1,0 +1,4 @@
+workflow: examples/workflow-v0-cel-invalid.yaml
+validate: true
+
+expectErrorContains: "cel:"

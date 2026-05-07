@@ -44,11 +44,17 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace bool) error {
 
 	def, err := definition.DecodeFile(sc.Workflow)
 	if err != nil {
+		if sc.ExpectErrorContains != "" {
+			return checkScenarioAssertionsOnError(cmd, sc, err)
+		}
 		return err
 	}
 
 	if sc.shouldValidate() {
 		if err := validate.WorkflowDefinition(def, validate.Options{}); err != nil {
+			if sc.ExpectErrorContains != "" {
+				return checkScenarioAssertionsOnError(cmd, sc, err)
+			}
 			return err
 		}
 	}
@@ -57,6 +63,9 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace bool) error {
 		InitialVariables: sc.InitialVariables,
 	})
 	if err != nil {
+		if sc.ExpectErrorContains != "" {
+			return checkScenarioAssertionsOnError(cmd, sc, err)
+		}
 		return err
 	}
 
