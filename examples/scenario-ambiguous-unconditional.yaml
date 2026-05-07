@@ -1,0 +1,4 @@
+workflow: examples/workflow-v0-ambiguous-unconditional.yaml
+validate: true
+
+expectErrorContains: "ambiguous unconditional transitions"

@@ -1,0 +1,27 @@
+schemaVersion: "0.1"
+id: example-ambiguous-unconditional
+version: 1.0.0
+title: Ambiguous unconditional transitions
+description: Validate should fail (two unconditional transitions share same from + priority)
+
+initialStepId: set
+terminalStepIds: [done1, done2]
+
+steps:
+  - id: a
+    kind: action
+
+  - id: done1
+    kind: end
+    
+  - id: done2
+    kind: end
+
+transitions:
+  - from: a
+    to: done1
+    priority: 0
+
+  - from: a
+    to: done2
+    priority: 0
