@@ -31,6 +31,27 @@ func (in *Instance) pickFirstFiringTransition(fromID string) (string, error) {
 	for _, ti := range idxs {
 		t := in.def.Transitions[ti]
 		ok, err := in.evalWhenForTransition(ti, in.variables)
+		if in.traceGuards {
+			ev := Event{
+				Type:            EventTransitionGuard,
+				TransitionIndex: ti,
+				FromStepID:      t.From,
+				ToStepID:        t.To,
+			}
+
+			switch {
+			case err != nil:
+				ev.GuardResult = "error"
+				ev.GuardError = err.Error()
+			case ok:
+				ev.GuardResult = "true"
+			default:
+				ev.GuardResult = "false"
+			}
+
+			in.record(ev)
+		}
+
 		if err != nil {
 			return "", fmt.Errorf("transition %d from=%q to=%q: %w", ti, t.From, t.To, err)
 		}

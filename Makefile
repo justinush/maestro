@@ -92,6 +92,21 @@ install:
 validate-example:
 	$(GO) run $(CLI_MAIN) validate -f examples/workflow-v0-minimal.yaml
 
+.PHONY: simulate-example
+simulate-example:
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-minimal.yaml
+
+.PHONY: simulate-negative
+simulate-negative:
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-invalid-missing-required.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-invalid-additional-property.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-cel-runtime-error.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-cel-invalid.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-ambiguous-unconditional.yaml
+
+.PHONE: smoke
+smoke: validate-example simulate-example simulate-negative
+
 ##@ Cleanup
 
 .PHONY: clean

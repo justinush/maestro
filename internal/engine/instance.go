@@ -13,12 +13,16 @@ type Options struct {
 	RunID string
 
 	InitialVariables map[string]any
+
+	TraceGuards bool
 }
 
 type Instance struct {
 	def *definition.WorkflowDefinition
 
 	runID string
+
+	traceGuards bool
 
 	currentStepID string
 	variables     map[string]any
@@ -76,6 +80,7 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 	return &Instance{
 		def:           def,
 		runID:         opts.RunID,
+		traceGuards:   opts.TraceGuards,
 		currentStepID: def.InitialStepID,
 		variables:     vars,
 		stepsByID:     stepsByID,

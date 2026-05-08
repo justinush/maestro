@@ -15,6 +15,7 @@ import (
 func NewCommand() *cobra.Command {
 	var scenarioPath string
 	var trace bool
+	var traceGuards bool
 
 	cmd := &cobra.Command{
 		Use:   "simulate",
@@ -24,16 +25,20 @@ func NewCommand() *cobra.Command {
 			if scenarioPath == "" {
 				return errors.New("required flag: --scenario / -s")
 			}
-			return runScenario(cmd, scenarioPath, trace)
+			if traceGuards && !trace {
+				trace = true
+			}
+			return runScenario(cmd, scenarioPath, trace, traceGuards)
 		},
 	}
 
 	cmd.Flags().StringVarP(&scenarioPath, "scenario", "s", "", "path to simulation scenario file (.yaml, .yml, or .json)")
 	cmd.Flags().BoolVar(&trace, "trace", false, "print engine execution trace")
+	cmd.Flags().BoolVar(&traceGuards, "trace-guards", false, "record and print transition guard results (enables --trace)")
 	return cmd
 }
 
-func runScenario(cmd *cobra.Command, scenarioPath string, trace bool) error {
+func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards bool) error {
 	sc, err := DecodeScenario(scenarioPath)
 	if err != nil {
 		return err
@@ -61,6 +66,7 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace bool) error {
 
 	in, err := engine.NewInstance(def, engine.Options{
 		InitialVariables: sc.InitialVariables,
+		TraceGuards:      traceGuards,
 	})
 	if err != nil {
 		if sc.ExpectErrorContains != "" {
