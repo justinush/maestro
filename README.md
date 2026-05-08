@@ -1,6 +1,6 @@
 # Maestro
 
-Maestro is building a scalable workflow engine for KYC automation.
+A scalable workflow engine for KYC automation.
 
 ## Requirements
 
@@ -23,6 +23,14 @@ Simulate a run from a scenario file (supports assertions):
 
 ```bash
 go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml
+```
+
+Print an execution trace (text or JSON):
+
+```bash
+go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace
+go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace --trace-format json
+go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace-guards
 ```
 
 Optional schema override and richer errors:
@@ -69,6 +77,7 @@ Runs the engine using a scenario file (`.yaml`/`.json`) that can:
 - provide scripted inputs for human steps
 - assert completion and variables (positive cases)
 - assert expected error substring (negative cases)
+- print an execution trace (`--trace`, `--trace-format json`, `--trace-guards`)
 
 ## Development
 
@@ -76,6 +85,7 @@ Runs the engine using a scenario file (`.yaml`/`.json`) that can:
 make test          # or: go test ./...
 make check         # lint + vet + test
 make build         # binary under dist/
+make smoke         # validate + simulate (positive + negative scenarios)
 ```
 
 See `make help` for all targets.
@@ -89,5 +99,5 @@ Worth tracking as the codebase grows:
 - **CEL**: validate and the engine must stay aligned on **bindings** (`variables`, and future names).
 - **JSON Schema**: custom root **`$id`** is supported; **external `$ref`** chains are not pre-loaded.
 - **Scenario assertions**: keep expanding example scenarios as contracts (positive and negative cases).
-- **Engine trace**: add an event log (step entered, action ran, transition taken) for debugging and persistence later.
+- **Engine trace**: trace is implemented; consider timestamps, persistence, and stable JSON output contracts.
 - **Logging**: structured logging belongs with a long-running service; the CLI stays stderr-oriented for now.
