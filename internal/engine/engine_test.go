@@ -73,8 +73,12 @@ func TestEngine_HappyPath_MinimalWorkflow(t *testing.T) {
 	}
 
 	// User submits input; engine advances to action step but does not auto-run until we call RunUntilBlocked again.
-	if err := in.SubmitInput(map[string]any{"fullName": "Justin"}); err != nil {
+	advanced, err := in.SubmitInput(map[string]any{"fullName": "Justin"})
+	if err != nil {
 		t.Fatalf("SubmitInput: %v", err)
+	}
+	if !advanced {
+		t.Fatalf("SubmitInput: expected to advance from %q", "collect")
 	}
 	if got := in.CurrentStepID(); got != "run" {
 		t.Fatalf("CurrentStepID after SubmitInput: want %q, got %q", "run", got)
@@ -256,7 +260,7 @@ func TestEngine_SubmitInput_EnforcesInputSchema(t *testing.T) {
 	}
 
 	// Missing required fullName => should fail.
-	err = in.SubmitInput(map[string]any{})
+	_, err = in.SubmitInput(map[string]any{})
 	if err == nil {
 		t.Fatal("expected input schema error")
 	}
@@ -268,9 +272,74 @@ func TestEngine_SubmitInput_EnforcesInputSchema(t *testing.T) {
 		t.Fatalf("StepID: want %q, got %q", "collect", ive.StepID)
 	}
 
-	// Valid payload should pass.
-	if err := in.SubmitInput(map[string]any{"fullName": "Justin"}); err != nil {
+	// Valid payload should pass and advance.
+	advanced, err := in.SubmitInput(map[string]any{"fullName": "Justin"})
+	if err != nil {
 		t.Fatalf("SubmitInput(valid): %v", err)
+	}
+	if !advanced {
+		t.Fatalf("SubmitInput(valid): expected to advance")
+	}
+}
+
+func TestEngine_SubmitInput_NoMatchingTransition_StaysOnHumanStep(t *testing.T) {
+	t.Parallel()
+
+	def := &definition.WorkflowDefinition{
+		SchemaVersion:   "0.1",
+		ID:              "t",
+		Version:         "1",
+		InitialStepID:   "collect",
+		TerminalStepIDs: []string{"done"},
+		Steps: []definition.Step{
+			{
+				ID:              "collect",
+				Kind:            definition.StepKindHuman,
+				PresentationRef: "forms/x@v1",
+				InputSchema: mustRawJSON(t, map[string]any{
+					"type":     "object",
+					"required": []any{"fullName"},
+					"properties": map[string]any{
+						"fullName": map[string]any{
+							"type": "string",
+						},
+					},
+					"additionalProperties": false,
+				}),
+			},
+			{ID: "done", Kind: definition.StepKindEnd},
+		},
+		Transitions: []definition.Transition{
+			{
+				From:     "collect",
+				To:       "done",
+				Priority: 0,
+				When:     "false",
+			},
+		},
+	}
+
+	in, err := NewInstance(def, Options{})
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+
+	if err := in.RunUntilBlocked(); !errors.Is(err, ErrNeedsInput) {
+		t.Fatalf("RunUntilBlocked: want ErrNeedsInput, got %v", err)
+	}
+	if got := in.CurrentStepID(); got != "collect" {
+		t.Fatalf("CurrentStepID: want %q, got %q", "collect", got)
+	}
+
+	advanced, err := in.SubmitInput(map[string]any{"fullName": "Justin"})
+	if err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+	if advanced {
+		t.Fatalf("SubmitInput: expected advanced=false")
+	}
+	if got := in.CurrentStepID(); got != "collect" {
+		t.Fatalf("CurrentStepID after SubmitInput: want %q, got %q", "collect", got)
 	}
 }
 

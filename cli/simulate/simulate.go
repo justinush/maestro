@@ -137,7 +137,8 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 				return fmt.Errorf("simulate: expected input for step %q, got input for %q", stepID, next.StepID)
 			}
 
-			if err := in.SubmitInput(next.Data); err != nil {
+			advanced, err := in.SubmitInput(next.Data)
+			if err != nil {
 				if sc.ExpectErrorContains != "" {
 					if traceErr := maybeTrace(); traceErr != nil {
 						return traceErr
@@ -149,6 +150,14 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 					return traceErr
 				}
 				return err
+			}
+
+			if trace && !advanced {
+				_, _ = fmt.Fprintf(
+					cmd.ErrOrStderr(),
+					"simulate: input accepted at %q but no transition matched; staying on step\n",
+					stepID,
+				)
 			}
 			continue
 
