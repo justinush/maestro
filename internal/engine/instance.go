@@ -188,5 +188,6 @@ func (in *Instance) Events() []Event {
 func (in *Instance) record(ev Event) {
 	in.nextSeq++
 	ev.Seq = in.nextSeq
+	ev.RunID = in.runID
 	in.events = append(in.events, ev)
 }

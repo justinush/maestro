@@ -19,27 +19,28 @@ const (
 )
 
 type Event struct {
-	Seq  int
-	Type EventType
+	Seq   int       `json:"seq"`
+	RunID string    `json:"runId,omitempty"`
+	Type  EventType `json:"type"`
 
-	StepID string
+	StepID string `json:"stepId,omitempty"`
 
-	// For input.accepted:
-	InputKeys []string
+	// input.accepted
+	InputKeys []string `json:"inputKeys,omitempty"`
 
-	// For action.ran:
-	ActionList string // "onEnter" or "onExit"
-	ActionID   string
-	ActionType string
+	// action.ran
+	ActionList string `json:"actionList,omitempty"` // "onEnter" or "onExit"
+	ActionID   string `json:"actionId,omitempty"`
+	ActionType string `json:"actionType,omitempty"`
 
-	// For transition.guard / transition.taken:
-	TransitionIndex int
-	FromStepID      string
-	ToStepID        string
+	// transition.guard / transition.taken:
+	TransitionIndex int    `json:"transitionIndex,omitempty"`
+	FromStepID      string `json:"fromStepId,omitempty"`
+	ToStepID        string `json:"toStepId,omitempty"`
 
-	// For transition.guard:
-	GuardResult string // "true", "false", "error"
-	GuardError  string // short error string when GuardResult == "error"
+	// transition.guard:
+	GuardResult string `json:"guardResult,omitempty"` // "true", "false", "error"
+	GuardError  string `json:"guardError,omitempty"`
 }
 
 func (e Event) String() string {
@@ -51,22 +52,26 @@ func (e Event) String() string {
 		return fmt.Sprintf("%04d %s step=%q keys=%s", e.Seq, e.Type, e.StepID, fmtKeys(e.InputKeys))
 
 	case EventActionRan:
-		return fmt.Sprintf("%04d %s step=%q list=%s action=%q type=%q",
+		return fmt.Sprintf(
+			"%04d %s step=%q list=%s action=%q type=%q",
 			e.Seq, e.Type, e.StepID, e.ActionList, e.ActionID, e.ActionType,
 		)
 
 	case EventTransitionGuard:
 		if e.GuardResult == "error" {
-			return fmt.Sprintf("%04d %s idx=%d from=%q to=%q result=%s error=%q",
+			return fmt.Sprintf(
+				"%04d %s idx=%d from=%q to=%q result=%s error=%q",
 				e.Seq, e.Type, e.TransitionIndex, e.FromStepID, e.ToStepID, e.GuardResult, e.GuardError,
 			)
 		}
-		return fmt.Sprintf("%04d %s idx=%d from=%q to=%q result=%s",
+		return fmt.Sprintf(
+			"%04d %s idx=%d from=%q to=%q result=%s",
 			e.Seq, e.Type, e.TransitionIndex, e.FromStepID, e.ToStepID, e.GuardResult,
 		)
 
 	case EventTransitionTaken:
-		return fmt.Sprintf("%04d %s idx=%d from=%q to=%q",
+		return fmt.Sprintf(
+			"%04d %s idx=%d from=%q to=%q",
 			e.Seq, e.Type, e.TransitionIndex, e.FromStepID, e.ToStepID,
 		)
 
@@ -87,6 +92,7 @@ func fmtKeys(keys []string) string {
 	}
 	cp := append([]string(nil), keys...)
 	sort.Strings(cp)
+
 	var b strings.Builder
 	b.WriteByte('[')
 	for i, k := range cp {

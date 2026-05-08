@@ -1,6 +1,7 @@
 package simulate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -12,10 +13,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type traceFormat string
+
+const (
+	traceText traceFormat = "text"
+	traceJSON traceFormat = "json"
+)
+
 func NewCommand() *cobra.Command {
 	var scenarioPath string
 	var trace bool
 	var traceGuards bool
+	var format string
 
 	cmd := &cobra.Command{
 		Use:   "simulate",
@@ -28,17 +37,26 @@ func NewCommand() *cobra.Command {
 			if traceGuards && !trace {
 				trace = true
 			}
-			return runScenario(cmd, scenarioPath, trace, traceGuards)
+			tf := traceFormat(strings.ToLower(strings.TrimSpace(format)))
+			if tf == "" {
+				tf = traceText
+			}
+			if tf != traceText && tf != traceJSON {
+				return fmt.Errorf("invalid --trace-format %q (use %q or %q)", format, traceText, traceJSON)
+			}
+
+			return runScenario(cmd, scenarioPath, trace, traceGuards, tf)
 		},
 	}
 
 	cmd.Flags().StringVarP(&scenarioPath, "scenario", "s", "", "path to simulation scenario file (.yaml, .yml, or .json)")
 	cmd.Flags().BoolVar(&trace, "trace", false, "print engine execution trace")
 	cmd.Flags().BoolVar(&traceGuards, "trace-guards", false, "record and print transition guard results (enables --trace)")
+	cmd.Flags().StringVar(&format, "trace-format", "text", "trace format: text or json (only used when --trace is set)")
 	return cmd
 }
 
-func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards bool) error {
+func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards bool, tf traceFormat) error {
 	sc, err := DecodeScenario(scenarioPath)
 	if err != nil {
 		return err
@@ -75,6 +93,13 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 		return err
 	}
 
+	maybeTrace := func() error {
+		if !trace {
+			return nil
+		}
+		return printTrace(cmd, in, tf)
+	}
+
 	inputIdx := 0
 	stepLimit := sc.maxSteps()
 
@@ -82,22 +107,22 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 		err := in.RunUntilBlocked()
 		switch {
 		case err == nil:
-			if trace {
-				printTrace(cmd, in)
+			if err := maybeTrace(); err != nil {
+				return err
 			}
 			return fmt.Errorf("simulate: stopped without error at step %q", in.CurrentStepID())
 
 		case errors.Is(err, engine.ErrWorkflowCompleted):
-			if trace {
-				printTrace(cmd, in)
+			if err := maybeTrace(); err != nil {
+				return err
 			}
 			return checkScenarioAssertionsOnCompletion(cmd, sc, in)
 
 		case errors.Is(err, engine.ErrNeedsInput):
 			stepID := in.CurrentStepID()
 			if inputIdx >= len(sc.Inputs) {
-				if trace {
-					printTrace(cmd, in)
+				if err := maybeTrace(); err != nil {
+					return err
 				}
 				return fmt.Errorf("simulate: step %q needs input but scenario has no more inputs", stepID)
 			}
@@ -106,21 +131,22 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 			inputIdx++
 
 			if next.StepID != "" && next.StepID != stepID {
-				if trace {
-					printTrace(cmd, in)
+				if err := maybeTrace(); err != nil {
+					return err
 				}
 				return fmt.Errorf("simulate: expected input for step %q, got input for %q", stepID, next.StepID)
 			}
 
 			if err := in.SubmitInput(next.Data); err != nil {
 				if sc.ExpectErrorContains != "" {
-					if trace {
-						printTrace(cmd, in)
+					if traceErr := maybeTrace(); traceErr != nil {
+						return traceErr
 					}
 					return checkScenarioAssertionsOnError(cmd, sc, err)
 				}
-				if trace {
-					printTrace(cmd, in)
+
+				if traceErr := maybeTrace(); traceErr != nil {
+					return traceErr
 				}
 				return err
 			}
@@ -128,27 +154,38 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 
 		default:
 			if sc.ExpectErrorContains != "" {
-				if trace {
-					printTrace(cmd, in)
+				if traceErr := maybeTrace(); traceErr != nil {
+					return traceErr
 				}
 				return checkScenarioAssertionsOnError(cmd, sc, err)
 			}
-			if trace {
-				printTrace(cmd, in)
+
+			if traceErr := maybeTrace(); traceErr != nil {
+				return traceErr
 			}
 			return err
 		}
 	}
 
-	if trace {
-		printTrace(cmd, in)
+	if err := maybeTrace(); err != nil {
+		return err
 	}
 	return fmt.Errorf("simulate: exceeded maxSteps=%d (possible loop)", stepLimit)
 }
 
-func printTrace(cmd *cobra.Command, in *engine.Instance) {
-	for _, ev := range in.Events() {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), ev.String())
+func printTrace(cmd *cobra.Command, in *engine.Instance, tf traceFormat) error {
+	switch tf {
+	case traceJSON:
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(in.Events())
+	default:
+		for _, ev := range in.Events() {
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), ev.String()); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 }
 
