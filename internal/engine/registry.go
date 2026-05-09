@@ -1,6 +1,10 @@
 package engine
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+	"time"
+)
 
 // Registry maps action type strings (JSON/YAML "type") to runners.
 // Register all types before passing the registry to NewInstance.
@@ -20,6 +24,20 @@ func DefaultRegistry() *Registry {
 		panic("engine: default registry: " + err.Error())
 	}
 	return r
+}
+
+// RegistryWithHTTP returns DefaultRegistry plus the "http" action type.
+func RegistryWithHTTP(client *http.Client) *Registry {
+	r := DefaultRegistry()
+	if err := r.Register("http", NewHTTPRunner(client)); err != nil {
+		panic("engine: registry with http: " + err.Error())
+	}
+	return r
+}
+
+// SimulateHTTPClient is a conservative default for simulate.
+func SimulateHTTPClient() *http.Client {
+	return &http.Client{Timeout: 60 * time.Second}
 }
 
 // Register installs a runner for actionType. Duplicate types are rejected.

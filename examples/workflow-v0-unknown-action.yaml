@@ -11,13 +11,13 @@ steps:
   - id: set
     kind: action
     onEnter:
-      - type: http
+      - type: grpc
         id: not-supported-yet
 
   - id: done
     kind: end
 
 transitions:
-  - from: a
+  - from: set
     to: done
     priority: 0

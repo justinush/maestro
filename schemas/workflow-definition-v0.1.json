@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/justinushermawan/maestro/schemas/workflow-definition-v0.1.json",
+  "$id": "https://github.com/justinush/maestro/schemas/workflow-definition-v0.1.json",
   "title": "Maestro Workflow Definition",
   "description": "Normative schema for Maestro workflow definitions at revision 0.1. A conforming document describes the static control-flow graph, step metadata, and action bindings for the Maestro orchestration runtime. Structural validity is evaluated against this schema after the document is decoded from YAML or JSON. Additional constraints—such as referential integrity of step identifiers, absence of transitions originating from terminal steps, and reachability—MAY be enforced by the runtime or tooling beyond JSON Schema validation.",
   "type": "object",
@@ -132,12 +132,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["type", "id"],
-      "description": "A named side effect executed by the runtime. Revision 0.1 defines the `stub` type for testing and variable seeding; additional types MAY be introduced in later schema revisions.",
+      "description": "A named side effect executed by the runtime. Revision 0.1 defines `stub` (no external I/O) and `http` (outbound HTTP); additional types MAY appear in later revisions.",
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["stub"],
-          "description": "Action implementation selector. Value `stub` indicates a no-external-I/O action used for initialization, simulation, and tests."
+          "enum": ["stub", "http"],
+          "description": "`stub` seeds variables without I/O. `http` performs an outbound HTTP request; params are validated in Go (url, resultVariable, optional method, headers, body, timeoutSeconds)."
         },
         "id": {
           "type": "string",
@@ -146,7 +146,7 @@
         },
         "params": {
           "type": "object",
-          "description": "Type-specific parameters. For `type: stub`, implementations SHOULD treat `params.set` as an object whose keys are variable paths and whose values are JSON values merged into the workflow instance context according to runtime rules."
+          "description": "Type-specific parameters. For `stub`, use `set` per tooling docs. For `http`, use `url`, `resultVariable`, and optional `method`, `headers`, `body`, `timeoutSeconds`."
         }
       }
     },

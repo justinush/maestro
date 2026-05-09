@@ -1,0 +1,17 @@
+schemaVersion: "0.1"
+id: x
+version: "1"
+initialStepId: a
+terminalStepIds: [end]
+steps:
+  - id: a
+    kind: action
+    onEnter:
+      - type: http
+        id: h
+        params:
+          resultVariable: out
+  - id: end
+    kind: end
+transitions:
+  - { from: a, to: end }

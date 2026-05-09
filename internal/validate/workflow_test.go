@@ -45,6 +45,11 @@ func TestWorkflow(t *testing.T) {
 			wantErrSub: "params:",
 		},
 		{
+			name:       "http_params_missing_url",
+			dataFile:   "invalid_http_params_missing_url.yaml",
+			wantErrSub: "url",
+		},
+		{
 			name:       "inputschema_invalid_compile",
 			dataFile:   "invalid_inputschema_compile.yaml",
 			wantErrSub: "inputSchema",

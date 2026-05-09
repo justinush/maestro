@@ -2,6 +2,8 @@ package engine
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/justinush/maestro/internal/definition"
@@ -390,6 +392,72 @@ func TestEngine_CustomActionRegistry(t *testing.T) {
 	}
 	if in.Variables()["custom"] != "ok" {
 		t.Fatalf("expected custom variable set by runner")
+	}
+}
+
+func TestEngine_HTTPRunner(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Echo-Method", r.Method)
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	reg := NewRegistry()
+	reg.MustRegister("stub", NewStubRunner())
+	reg.MustRegister("http", NewHTTPRunner(srv.Client()))
+
+	def := &definition.WorkflowDefinition{
+		SchemaVersion:   "0.1",
+		ID:              "t",
+		Version:         "1",
+		InitialStepID:   "call",
+		TerminalStepIDs: []string{"end"},
+		Steps: []definition.Step{
+			{
+				ID:   "call",
+				Kind: definition.StepKindAction,
+				OnEnter: []definition.Action{
+					{
+						Type: "http",
+						ID:   "fetch",
+						Params: mustRawJSON(t, map[string]any{
+							"url":            srv.URL + "/path",
+							"resultVariable": "httpResult",
+							"timeoutSeconds": 5,
+						}),
+					},
+				},
+			},
+			{ID: "end", Kind: definition.StepKindEnd},
+		},
+		Transitions: []definition.Transition{
+			{From: "call", To: "end", Priority: 0},
+		},
+	}
+
+	in, err := NewInstance(def, Options{ActionRegistry: reg})
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
+		t.Fatalf("RunUntilBlocked: want ErrWorkflowCompleted, got %v", err)
+	}
+
+	v := in.Variables()["httpResult"]
+	m, ok := v.(map[string]any)
+	if !ok {
+		t.Fatalf("httpResult type %T", v)
+	}
+	gotCode, ok := m["statusCode"].(int)
+	if !ok || gotCode != http.StatusTeapot {
+		t.Fatalf("statusCode: want %d, got %#v (%T)", http.StatusTeapot, m["statusCode"], m["statusCode"])
+	}
+	body, _ := m["body"].(string)
+	if body != `{"ok":true}` {
+		t.Fatalf("body: got %q", body)
 	}
 }
 
