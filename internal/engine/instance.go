@@ -15,6 +15,8 @@ type Options struct {
 	InitialVariables map[string]any
 
 	TraceGuards bool
+
+	ActionRegistry *Registry
 }
 
 type Instance struct {
@@ -31,6 +33,8 @@ type Instance struct {
 	terminal  map[string]struct{}
 
 	onEnterRan bool
+
+	actionReg *Registry
 
 	inputSchemas inputSchemaCache
 
@@ -77,6 +81,11 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 	vars := make(map[string]any)
 	maps.Copy(vars, opts.InitialVariables)
 
+	reg := opts.ActionRegistry
+	if reg == nil {
+		reg = DefaultRegistry()
+	}
+
 	return &Instance{
 		def:           def,
 		runID:         opts.RunID,
@@ -86,6 +95,7 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 		stepsByID:     stepsByID,
 		terminal:      term,
 		onEnterRan:    false,
+		actionReg:     reg,
 		events:        nil,
 		nextSeq:       0,
 	}, nil

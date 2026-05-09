@@ -343,6 +343,56 @@ func TestEngine_SubmitInput_NoMatchingTransition_StaysOnHumanStep(t *testing.T) 
 	}
 }
 
+type testSetVarRunner struct {
+	key string
+	val string
+}
+
+func (r testSetVarRunner) Run(ctx ActionContext) error {
+	ctx.Variables[r.key] = r.val
+	return nil
+}
+
+func TestEngine_CustomActionRegistry(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+	reg.MustRegister("stub", NewStubRunner())
+	reg.MustRegister("setVar", testSetVarRunner{key: "custom", val: "ok"})
+
+	def := &definition.WorkflowDefinition{
+		SchemaVersion:   "0.1",
+		ID:              "t",
+		Version:         "1",
+		InitialStepID:   "a",
+		TerminalStepIDs: []string{"end"},
+		Steps: []definition.Step{
+			{
+				ID:   "a",
+				Kind: definition.StepKindAction,
+				OnEnter: []definition.Action{
+					{Type: "setVar", ID: "x"},
+				},
+			},
+			{ID: "end", Kind: definition.StepKindEnd},
+		},
+		Transitions: []definition.Transition{
+			{From: "a", To: "end", Priority: 0},
+		},
+	}
+
+	in, err := NewInstance(def, Options{ActionRegistry: reg})
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
+		t.Fatalf("RunUntilBlocked: want ErrWorkflowCompleted, got %v", err)
+	}
+	if in.Variables()["custom"] != "ok" {
+		t.Fatalf("expected custom variable set by runner")
+	}
+}
+
 func mustRawJSON(t *testing.T, v any) definition.RawJSON {
 	t.Helper()
 	b, err := marshalToRawJSON(v)
