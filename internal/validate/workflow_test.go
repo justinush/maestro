@@ -30,6 +30,11 @@ func TestWorkflow(t *testing.T) {
 			wantErrSub: "not reachable",
 		},
 		{
+			name:       "step_metadata_duplicate_label",
+			dataFile:   "invalid_step_metadata_duplicate_label.yaml",
+			wantErrSub: "duplicate label",
+		},
+		{
 			name:       "graph_duplicate_transition",
 			dataFile:   "invalid_graph_duplicate_transition.yaml",
 			wantErrSub: "duplicate transition",

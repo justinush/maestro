@@ -8,7 +8,7 @@ import (
 
 // WorkflowDefinition validates an already-decoded workflow definition.
 // It runs JSON Schema (embedded or opts.SchemaPath), then graph, transition invariants,
-// CEL, stub params, http params, and inputSchema checks.
+// CEL, stub params, http params, step metadata, and inputSchema checks.
 func WorkflowDefinition(def *definition.WorkflowDefinition, opts Options) error {
 	var schemaErr error
 	if opts.SchemaPath != "" {
@@ -24,6 +24,7 @@ func WorkflowDefinition(def *definition.WorkflowDefinition, opts Options) error 
 		validateCELGuards(def, opts.Verbose),
 		validateStubActions(def),
 		validateHTTPActions(def),
+		validateStepMetadata(def),
 		validateInputSchemas(def, opts.Verbose),
 	)
 }

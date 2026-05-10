@@ -1,0 +1,160 @@
+schemaVersion: "0.1"
+id: kyc-sg-portrait-onboarding
+version: "1.0.0"
+title: Singapore portrait onboarding
+description: >
+  SG portrait onboarding for eligible users: confirm partner sync status,
+  capture customer relationship details, run an outbound integration check,
+  complete liveness, then collect proof-of-address and route to approval,
+  manual review, partner rejection, or address refusal as appropriate.
+
+initialStepId: partner_gate
+terminalStepIds:
+  - end_approved
+  - end_partner_rejected
+  - end_poa_refused
+  - end_manual_review
+
+steps:
+  - id: partner_gate
+    kind: action
+    description: Wait until partner sync state is known (simulated via initial variables or future poll action).
+    labels: [region:sg, journey:onboarding, gate:partner]
+    annotations:
+      product: kyc
+      channel: portrait
+    onEnter: []
+
+  - id: cor_entry
+    kind: human
+    description: Collect / confirm COR-related acknowledgement before integration probe.
+    labels: [region:sg, screen:cor]
+    annotations:
+      presentation.schema: customer_relationship.collect.v1
+    presentationRef: forms/sg/customer-relationship@v1
+    inputSchema:
+      type: object
+      required: [corAck]
+      properties:
+        corAck:
+          type: boolean
+    onEnter: []
+
+  - id: post_cor_integration
+    kind: action
+    description: Run local seed (stub) then optional outbound probe (http).
+    labels: [integration:probe]
+    annotations:
+      note: replace-jsonplaceholder-with-your-api
+    onEnter:
+      - type: stub
+        id: seed-integration
+        params:
+          set:
+            integrationLocalReady: true
+      - type: http
+        id: public-probe
+        params:
+          url: "https://jsonplaceholder.typicode.com/todos/1"
+          resultVariable: integrationHttpTodo
+          timeoutSeconds: 10
+
+  - id: liveness
+    kind: human
+    description: Face / liveness completion signalled into variables.liveness.passed.
+    labels: [screen:liveness]
+    annotations:
+      presentation.schema: identity.liveness.capture.v1
+    presentationRef: forms/sg/identity-liveness@v1
+    inputSchema:
+      type: object
+      required: [liveness]
+      properties:
+        liveness:
+          type: object
+          required: [passed]
+          properties:
+            passed:
+              type: boolean
+          additionalProperties: false
+      additionalProperties: false
+
+  - id: poa_collect
+    kind: human
+    description: Proof of address outcome drives approve vs manual review vs refused terminals.
+    labels: [screen:poa]
+    annotations:
+      presentation.schema: address.proof_of_address.collect.v1
+    presentationRef: forms/sg/address-proof@v1
+    inputSchema:
+      type: object
+      required: [address]
+      properties:
+        address:
+          type: object
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [passed, refused]
+            reviewRequired:
+              type: boolean
+          additionalProperties: false
+      additionalProperties: false
+
+  - id: end_approved
+    kind: end
+    description: KYC completed successfully for this slice.
+    labels: [outcome:approved]
+
+  - id: end_partner_rejected
+    kind: end
+    description: Partner sync failed or partner declined.
+    labels: [outcome:rejected, reason:partner]
+
+  - id: end_poa_refused
+    kind: end
+    description: Address / POA refused.
+    labels: [outcome:rejected, reason:poa]
+
+  - id: end_manual_review
+    kind: end
+    description: POA passed gates but requires human review.
+    labels: [outcome:review]
+
+transitions:
+  - from: partner_gate
+    to: cor_entry
+    priority: 0
+    when: 'variables.partner.status == "synced"'
+  - from: partner_gate
+    to: end_partner_rejected
+    priority: 1
+    when: 'variables.partner.status == "failed"'
+
+  - from: cor_entry
+    to: post_cor_integration
+    priority: 0
+    when: "variables.corAck == true"
+
+  - from: post_cor_integration
+    to: liveness
+    priority: 0
+
+  - from: liveness
+    to: poa_collect
+    priority: 0
+    when: "variables.liveness.passed == true"
+
+  - from: poa_collect
+    to: end_manual_review
+    priority: 0
+    when: "variables.address.reviewRequired == true"
+  - from: poa_collect
+    to: end_poa_refused
+    priority: 1
+    when: 'variables.address.status == "refused"'
+  - from: poa_collect
+    to: end_approved
+    priority: 2
+    when: 'variables.address.status == "passed" && variables.address.reviewRequired != true'

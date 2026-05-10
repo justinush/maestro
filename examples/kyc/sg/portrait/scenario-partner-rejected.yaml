@@ -1,0 +1,8 @@
+workflow: examples/kyc/sg/portrait/workflow.yaml
+validate: true
+
+initialVariables:
+  partner:
+    status: failed
+
+expectFinalStep: end_partner_rejected

@@ -61,12 +61,15 @@ type Action struct {
 }
 
 type Step struct {
-	ID              string   `json:"id" yaml:"id"`
-	Kind            StepKind `json:"kind" yaml:"kind"`
-	PresentationRef string   `json:"presentationRef,omitempty" yaml:"presentationRef,omitempty"`
-	InputSchema     RawJSON  `json:"inputSchema,omitempty" yaml:"inputSchema,omitempty"`
-	OnEnter         []Action `json:"onEnter,omitempty" yaml:"onEnter,omitempty"`
-	OnExit          []Action `json:"onExit,omitempty" yaml:"onExit,omitempty"`
+	ID              string            `json:"id" yaml:"id"`
+	Kind            StepKind          `json:"kind" yaml:"kind"`
+	Description     string            `json:"description,omitempty" yaml:"description,omitempty"`
+	Labels          []string          `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	PresentationRef string            `json:"presentationRef,omitempty" yaml:"presentationRef,omitempty"`
+	InputSchema     RawJSON           `json:"inputSchema,omitempty" yaml:"inputSchema,omitempty"`
+	OnEnter         []Action          `json:"onEnter,omitempty" yaml:"onEnter,omitempty"`
+	OnExit          []Action          `json:"onExit,omitempty" yaml:"onExit,omitempty"`
 }
 
 type Transition struct {

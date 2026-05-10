@@ -1,0 +1,17 @@
+schemaVersion: "0.1"
+id: step-meta-dup
+version: "1"
+initialStepId: a
+terminalStepIds: [end]
+steps:
+  - id: a
+    kind: human
+    presentationRef: ui/x
+    labels: [dup, dup]
+    inputSchema:
+      type: object
+      properties: {}
+  - id: end
+    kind: end
+transitions:
+  - { from: a, to: end }

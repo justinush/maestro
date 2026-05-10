@@ -1,0 +1,22 @@
+workflow: examples/kyc/sg/portrait/workflow.yaml
+validate: true
+
+initialVariables:
+  partner:
+    status: synced
+
+inputs:
+  - stepId: cor_entry
+    data:
+      corAck: true
+  - stepId: liveness
+    data:
+      liveness:
+        passed: true
+  - stepId: poa_collect
+    data:
+      address:
+        status: passed
+        reviewRequired: true
+
+expectFinalStep: end_manual_review

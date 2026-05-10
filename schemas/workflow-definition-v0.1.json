@@ -87,6 +87,34 @@
           "enum": ["human", "action", "end"],
           "description": "Discriminator for runtime behavior: `human` denotes a channel-presented task requiring end-user or operator input; `action` denotes an automated step driven by `onEnter`/`onExit` actions; `end` denotes a terminal step with no outbound transitions."
         },
+        "description": {
+          "type": "string",
+          "maxLength": 8192,
+          "description": "Human-readable description of this step for catalogs, docs, and audit; not interpreted by the runtime."
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "description": "Lightweight tags for filtering, ownership, or UI routing hints (e.g. region, product line).",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "maxProperties": 64,
+          "description": "String key/value metadata for tooling and policy (e.g. external ticket id, risk tier). Values are opaque to the core runtime.",
+          "propertyNames": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
         "presentationRef": {
           "type": "string",
           "minLength": 1,
