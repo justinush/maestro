@@ -45,6 +45,24 @@ Smoke the bundled example via Make:
 make validate-example
 ```
 
+## Library
+
+Stable imports for embedding the engine in your own service or tool:
+
+- **`github.com/justinush/maestro/pkg/definition`** — workflow types and **`DecodeFile`** (strict YAML/JSON).
+- **`github.com/justinush/maestro/pkg/engine`** — **`NewInstance`**, **`RunUntilBlocked`**, **`SubmitInput`**, **`Registry`**, **`ActionRunner`**, trace **`Event`** values, and sentinel errors.
+- **`github.com/justinush/maestro/pkg/validate`** — **`WorkflowFile`** and **`WorkflowDefinition`** (same checks as **`maestro validate`**).
+
+Typical flow: **`definition.DecodeFile`** → optional **`validate.WorkflowDefinition`** → **`engine.NewInstance`** → **`RunUntilBlocked`** / **`SubmitInput`**.
+
+Minimal program:
+
+```bash
+go run ./examples/library examples/workflow-v0-minimal.yaml
+```
+
+After you publish tags, pin with **`require github.com/justinush/maestro v0.x.y`** in the consumer module.
+
 ## Concepts (v0.1)
 
 - **Definition**: YAML/JSON describing `steps` and `transitions`.
