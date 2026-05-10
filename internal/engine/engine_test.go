@@ -461,6 +461,59 @@ func TestEngine_HTTPRunner(t *testing.T) {
 	}
 }
 
+func TestEngine_SnapshotRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	def := &definition.WorkflowDefinition{
+		SchemaVersion:   "0.1",
+		ID:              "t",
+		Version:         "1",
+		InitialStepID:   "a",
+		TerminalStepIDs: []string{"end"},
+		Steps: []definition.Step{
+			{ID: "a", Kind: definition.StepKindAction},
+			{ID: "end", Kind: definition.StepKindEnd},
+		},
+		Transitions: []definition.Transition{
+			{From: "a", To: "end", Priority: 0},
+		},
+	}
+
+	in, err := NewInstance(def, Options{RunID: "run-1", InitialVariables: map[string]any{"k": 1}})
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
+		t.Fatalf("RunUntilBlocked: %v", err)
+	}
+
+	snap := in.Snapshot()
+	if snap.CurrentStepID != "end" {
+		t.Fatalf("snap step: %q", snap.CurrentStepID)
+	}
+	if snap.NextSeq < 1 {
+		t.Fatalf("snap nextSeq: %d", snap.NextSeq)
+	}
+
+	in2, err := NewInstanceFromSnapshot(def, snap, Options{ActionRegistry: DefaultRegistry()})
+	if err != nil {
+		t.Fatalf("NewInstanceFromSnapshot: %v", err)
+	}
+	if in2.CurrentStepID() != snap.CurrentStepID {
+		t.Fatalf("restored step: %q", in2.CurrentStepID())
+	}
+	if in2.RunID() != "run-1" {
+		t.Fatalf("restored runId: %q", in2.RunID())
+	}
+	if got := in2.Variables()["k"]; got != float64(1) && got != 1 {
+		// JSON round-trips numbers as float64; in-memory int stays int
+		t.Fatalf("variables k: %#v", got)
+	}
+	if len(in2.Events()) != len(in.Events()) {
+		t.Fatalf("events len: %d vs %d", len(in2.Events()), len(in.Events()))
+	}
+}
+
 func mustRawJSON(t *testing.T, v any) definition.RawJSON {
 	t.Helper()
 	b, err := marshalToRawJSON(v)

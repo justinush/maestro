@@ -12,10 +12,12 @@ const (
 	StepKindEnd    = idef.StepKindEnd
 )
 
-type Action = idef.Action
-type Step = idef.Step
-type Transition = idef.Transition
-type WorkflowDefinition = idef.WorkflowDefinition
+type (
+	Action             = idef.Action
+	Step               = idef.Step
+	Transition         = idef.Transition
+	WorkflowDefinition = idef.WorkflowDefinition
+)
 
 // DecodeFile reads a .json, .yaml, or .yml workflow file with strict parsing.
 func DecodeFile(path string) (*WorkflowDefinition, error) {

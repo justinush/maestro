@@ -44,9 +44,9 @@ type Instance struct {
 	nextSeq int
 }
 
-// NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
-// It checks step ids, initial step presence, and terminal rules via workflowgraph.BuildTerminalSet.
-func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
+// newInstanceShell validates def, builds step/terminal maps, and attaches registry.
+// It does not set currentStepID, variables, onEnterRan, events, or nextSeq.
+func newInstanceShell(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
 	if def == nil {
 		return nil, ErrNilDefinition
 	}
@@ -78,9 +78,6 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 		return nil, fmt.Errorf("engine: terminals: %w", err)
 	}
 
-	vars := make(map[string]any)
-	maps.Copy(vars, opts.InitialVariables)
-
 	reg := opts.ActionRegistry
 	if reg == nil {
 		reg = DefaultRegistry()
@@ -90,15 +87,35 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 		def:           def,
 		runID:         opts.RunID,
 		traceGuards:   opts.TraceGuards,
-		currentStepID: def.InitialStepID,
-		variables:     vars,
+		currentStepID: "",
+		variables:     nil,
 		stepsByID:     stepsByID,
 		terminal:      term,
 		onEnterRan:    false,
 		actionReg:     reg,
+		celPrograms:   nil,
 		events:        nil,
 		nextSeq:       0,
 	}, nil
+}
+
+// NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
+// It checks step ids, initial step presence, and terminal rules via workflowgraph.BuildTerminalSet.
+func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
+	in, err := newInstanceShell(def, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	vars := make(map[string]any)
+	maps.Copy(vars, opts.InitialVariables)
+
+	in.variables = vars
+	in.currentStepID = def.InitialStepID
+	in.onEnterRan = false
+	in.events = nil
+	in.nextSeq = 0
+	return in, nil
 }
 
 // Definition returns the workflow backing this instance, or nil if in is nil; Do not mutate it.

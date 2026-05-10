@@ -4,11 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/justinush/maestro/internal/definition"
 	iengine "github.com/justinush/maestro/internal/engine"
+	"github.com/justinush/maestro/pkg/definition"
 )
 
-// Types
 type (
 	Instance             = iengine.Instance
 	Options              = iengine.Options
@@ -19,9 +18,9 @@ type (
 	EventType            = iengine.EventType
 	InputValidationError = iengine.InputValidationError
 	UnknownStepError     = iengine.UnknownStepError
+	Snapshot             = iengine.Snapshot
 )
 
-// Event kinds (trace)
 const (
 	EventStepEntered     EventType = iengine.EventStepEntered
 	EventInputAccepted   EventType = iengine.EventInputAccepted
@@ -32,7 +31,6 @@ const (
 	EventCompleted       EventType = iengine.EventCompleted
 )
 
-// Sentinel errors
 var (
 	ErrNilDefinition        = iengine.ErrNilDefinition
 	ErrEmptyInitialStepID   = iengine.ErrEmptyInitialStepID
@@ -50,6 +48,12 @@ var (
 // NewInstance creates an instance at initialStepId. def must be non-nil.
 func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
 	return iengine.NewInstance(def, opts)
+}
+
+// NewInstanceFromSnapshot restores execution state from Snapshot.
+// def must be the same workflow used when the snapshot was taken (same steps/transitions).
+func NewInstanceFromSnapshot(def *definition.WorkflowDefinition, snap Snapshot, opts Options) (*Instance, error) {
+	return iengine.NewInstanceFromSnapshot(def, snap, opts)
 }
 
 func NewRegistry() *Registry {
