@@ -42,22 +42,21 @@ steps:
 
   - id: post_cor_integration
     kind: action
-    description: Run local seed (stub) then optional outbound probe (http).
+    description: Seed integration flags and a fixed probe payload (no network); swap the second stub for an http action when we want a live dependency.
     labels: [integration:probe]
     annotations:
-      note: replace-jsonplaceholder-with-your-api
+      integration.mode: stub
     onEnter:
       - type: stub
         id: seed-integration
         params:
           set:
             integrationLocalReady: true
-      - type: http
-        id: public-probe
+      - type: stub
+        id: integration-probe-stub
         params:
-          url: "https://jsonplaceholder.typicode.com/todos/1"
-          resultVariable: integrationHttpTodo
-          timeoutSeconds: 10
+          set:
+            integrationHttpTodo: '{"source":"stub","statusCode":200,"headers":{},"body":"{\"ok\":true}"}'
 
   - id: liveness
     kind: human

@@ -104,8 +104,18 @@ simulate-negative:
 	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-cel-invalid.yaml
 	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-ambiguous-unconditional.yaml
 
-.PHONE: smoke
-smoke: validate-example simulate-example simulate-negative
+.PHONY: validate-portrait
+validate-portrait:
+	$(GO) run $(CLI_MAIN) validate -f examples/kyc/sg/portrait/workflow.yaml
+
+.PHONY: simulate-portrait
+simulate-portrait:
+	$(GO) run $(CLI_MAIN) simulate -s examples/kyc/sg/portrait/scenario-happy.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/kyc/sg/portrait/scenario-partner-rejected.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/kyc/sg/portrait/scenario-poa-review.yaml
+
+.PHONY: smoke
+smoke: validate-example simulate-example simulate-negative validate-portrait simulate-portrait
 
 ##@ Cleanup
 

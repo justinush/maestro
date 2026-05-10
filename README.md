@@ -48,13 +48,39 @@ make validate-example
 ## Concepts (v0.1)
 
 - **Definition**: YAML/JSON describing `steps` and `transitions`.
+
 - **Step kinds**:
   - `human`: blocks until input is submitted
   - `action`: runs `onEnter`/`onExit` actions and auto-advances by transitions
   - `end`: terminal step (must be listed in `terminalStepIds`)
-- **Guards**: `transitions[].when` is CEL. Today the runtime exposes `variables` to guards.
-- **Variables**: a dynamic bag updated by actions and user input.
-- **Input schema**: `steps[].inputSchema` is JSON Schema validated on `SubmitInput`.
+
+### Exit guards
+
+Leaving a step means choosing a **transition** out of that step. Optional CEL on **`transitions[].when`** is an **exit guard**: it must evaluate to true for that edge to be followed. Omitting or leaving `when` empty means that transition is **unconditional** (subject to engine ordering: `priority`, then declaration order among ties).
+
+Authoring rule of thumb: **`onEnter` / `onExit` actions** and **`SubmitInput`** should populate **`variables`** so exit guards read a small, stable shape—avoid hiding state only inside presentation layers.
+
+The engine currently exposes **`variables`** to CEL; keep guards aligned with whatever your actions and inputs write there.
+
+### Variables
+
+**`variables`** is the instance state bag: top-level keys are set by **`stub`**, **`http`** (via `resultVariable`), and a **shallow merge** on **`SubmitInput`**. Nested maps are fine as **values**; updating nested fields is still “replace the whole top-level key” unless you model finer paths yourself.
+
+**Naming convention (recommended, not enforced by the engine):**
+
+| Area | Suggested top-level key | Contents |
+|------|---------------------------|----------|
+| Partner / corridor sync | `partner` | e.g. `status`, error codes |
+| Customer relationship / base capture | `profile` or flat keys you prefer | facts agreed at COR-style steps |
+| Liveness / face | `liveness` | e.g. `passed`, vendor hints |
+| Address / POA | `address` | e.g. `status`, `reviewRequired` |
+| Integrations / probes | `integration`, `integrationHttpTodo`, … | HTTP echo objects, staging flags |
+
+Re-use the same keys across **definitions**, **`simulate`** `initialVariables`, and **`expectVariables`** so validation (CEL compile) and scenarios stay easy to reason about.
+
+### Input schema
+
+**`steps[].inputSchema`** is JSON Schema, validated on **`SubmitInput`** for `human` steps.
 
 ## CLI
 
@@ -85,7 +111,7 @@ Runs the engine using a scenario file (`.yaml`/`.json`) that can:
 make test          # or: go test ./...
 make check         # lint + vet + test
 make build         # binary under dist/
-make smoke         # validate + simulate (positive + negative scenarios)
+make smoke         # validate + simulate (minimal + negative + SG portrait)
 ```
 
 See `make help` for all targets.
