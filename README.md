@@ -93,28 +93,14 @@ Use the same names in definitions, `simulate`’s `initialVariables`, and `expec
 
 Maestro is meant to be **imported**: definitions and checks sit on top of a small engine; side effects go through runners; your app owns databases, auth, queues, and whatever stores snapshots.
 
-```
-  Workflow definition (YAML / JSON)
-              │
-              ▼
-       ┌──────────────┐
-       │  Validation  │  JSON Schema, graph, CEL compile,
-       │  + simulate  │  stub/http params, inputSchema
-       └──────────────┘
-              │
-              ▼
-       ┌──────────────┐
-       │   Instance   │  current step, variables, guards,
-       │   (engine)   │  RunUntilBlocked / SubmitInput
-       └──────────────┘
-              │
-              ▼
-       ┌──────────────┐
-       │Action runners│  Registry: stub, http, yours
-       └──────────────┘
-              │
-              ▼
-  Your app (HTTP, queues, pkg/run Store, UI)
+```mermaid
+flowchart TB
+  DEF["Workflow definition<br/>(YAML / JSON)"]
+  VAL["Validation + simulate<br/>JSON Schema, graph, CEL,<br/>stub/http params, inputSchema"]
+  ENG["Instance (engine)<br/>current step, variables, guards<br/>RunUntilBlocked / SubmitInput"]
+  RUN["Action runners<br/>Registry: stub, http, custom"]
+  APP["Your application<br/>HTTP, queues, pkg/run Store, UI"]
+  DEF --> VAL --> ENG --> RUN --> APP
 ```
 
 The `maestro` binary is thin glue over `pkg/validate` and `pkg/engine`—same code paths you’d use in production.
