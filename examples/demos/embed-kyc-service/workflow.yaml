@@ -2,7 +2,7 @@ schemaVersion: "0.1"
 id: embed-kyc-demo
 version: "1.0.0"
 title: Embed KYC demo
-description: Human profile → stubbed liveness check → approved (for examples/embed-kyc-service).
+description: Human profile → stubbed liveness check → approved.
 
 initialStepId: collect-profile
 terminalStepIds:

@@ -204,7 +204,7 @@ Happy path: decode → optionally validate → `NewInstance` → loop `RunUntilB
 Tiny embed example:
 
 ```bash
-go run ./examples/library examples/workflows/workflow-v0-minimal.yaml
+go run ./examples/demos/library-basic examples/workflows/workflow-v0-minimal.yaml
 ```
 
 That one stops at the first human step on purpose—it’s a skeleton, not a full product.

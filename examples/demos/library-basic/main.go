@@ -43,7 +43,7 @@ func main() {
 			fmt.Printf("completed at step %q\n", in.CurrentStepID())
 			return
 		case errors.Is(err, engine.ErrNeedsInput):
-			fmt.Printf("blocked at %q (needs input - see embed-kyc-service for SubmitInput + persistence)\n", in.CurrentStepID())
+			fmt.Printf("blocked at %q (needs input — see examples/demos/embed-kyc-service)\n", in.CurrentStepID())
 			return
 		case err != nil:
 			fmt.Fprintf(os.Stderr, "run: %v\n", err)
