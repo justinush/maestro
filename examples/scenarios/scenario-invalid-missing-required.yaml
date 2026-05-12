@@ -1,4 +1,4 @@
-workflow: examples/workflow-v0-inputschema-strict.yaml
+workflow: examples/workflows/workflow-v0-inputschema-strict.yaml
 validate: true
 
 inputs:

@@ -90,19 +90,19 @@ install:
 
 .PHONY: validate-example
 validate-example:
-	$(GO) run $(CLI_MAIN) validate -f examples/workflow-v0-minimal.yaml
+	$(GO) run $(CLI_MAIN) validate -f examples/workflows/workflow-v0-minimal.yaml
 
 .PHONY: simulate-example
 simulate-example:
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-minimal.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-minimal.yaml
 
 .PHONY: simulate-negative
 simulate-negative:
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-invalid-missing-required.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-invalid-additional-property.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-cel-runtime-error.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-cel-invalid.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenario-ambiguous-unconditional.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-invalid-missing-required.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-invalid-additional-property.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-cel-runtime-error.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-cel-invalid.yaml
+	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-ambiguous-unconditional.yaml
 
 .PHONY: validate-portrait
 validate-portrait:

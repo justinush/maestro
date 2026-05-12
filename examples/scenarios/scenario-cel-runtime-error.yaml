@@ -1,0 +1,4 @@
+workflow: examples/workflows/workflow-v0-cel-runtime-error.yaml
+validate: true
+
+expectErrorContains: "cel guard"

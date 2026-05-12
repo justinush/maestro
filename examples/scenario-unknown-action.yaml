@@ -1,4 +1,0 @@
-workflow: examples/workflow-v0-unknown-action.yaml
-validate: false
-
-expectErrorContains: "unknown action type"

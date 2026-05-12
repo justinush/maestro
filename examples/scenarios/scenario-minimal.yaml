@@ -1,4 +1,4 @@
-workflow: examples/workflow-v0-minimal.yaml
+workflow: examples/workflows/workflow-v0-minimal.yaml
 validate: true
 inputs:
   - stepId: collect-profile

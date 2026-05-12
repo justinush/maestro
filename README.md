@@ -115,27 +115,27 @@ The `maestro` binary is thin glue over `pkg/validate` and `pkg/engine`—same co
 
 ```bash
 go build -o maestro ./cmd/maestro
-./maestro validate -f examples/workflow-v0-minimal.yaml
+./maestro validate -f examples/workflows/workflow-v0-minimal.yaml
 ```
 
 Without installing a binary:
 
 ```bash
-go run ./cmd/maestro validate -f examples/workflow-v0-minimal.yaml
+go run ./cmd/maestro validate -f examples/workflows/workflow-v0-minimal.yaml
 ```
 
 Run a scripted scenario (with assertions):
 
 ```bash
-go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml
+go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml
 ```
 
 Trace (plain text or JSON):
 
 ```bash
-go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace
-go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace --trace-format json
-go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace-guards
+go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace
+go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace --trace-format json
+go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace-guards
 ```
 
 Custom schema and louder errors:
@@ -160,7 +160,7 @@ make smoke
 
 ### Minimal onboarding
 
-See `examples/workflow-v0-minimal.yaml`: human `collect-profile` → action `run-checks` (stub flips `checksStarted`) → `done`, with CEL on the edge into `done`. Drive it with `examples/scenario-minimal.yaml`.
+See `examples/workflows/workflow-v0-minimal.yaml`: human `collect-profile` → action `run-checks` (stub flips `checksStarted`) → `done`, with CEL on the edge into `done`. Drive it with `examples/scenarios/scenario-minimal.yaml`.
 
 ### Singapore portrait
 
@@ -169,7 +169,7 @@ Under `examples/kyc/sg/portrait/` there’s a longer path (partner gate, relatio
 ### What a trace looks like
 
 ```bash
-go run ./cmd/maestro simulate -s examples/scenario-minimal.yaml --trace
+go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace
 ```
 
 You’ll see lines like (ids may differ if you change the example):
@@ -204,7 +204,7 @@ Happy path: decode → optionally validate → `NewInstance` → loop `RunUntilB
 Tiny embed example:
 
 ```bash
-go run ./examples/library examples/workflow-v0-minimal.yaml
+go run ./examples/library examples/workflows/workflow-v0-minimal.yaml
 ```
 
 That one stops at the first human step on purpose—it’s a skeleton, not a full product.
