@@ -1,0 +1,30 @@
+schemaVersion: "0.1"
+id: http-runner-demo
+version: "1.0.0"
+title: HTTP runner demo
+description: Single HTTP probe then terminal.
+
+initialStepId: call-vendor
+terminalStepIds:
+  - approved
+
+steps:
+  - id: call-vendor
+    kind: action
+    onEnter:
+      - type: http
+        id: vendor-liveness
+        params:
+          method: GET
+          url: "__HTTP_BASE__/v1/liveness/status"
+          resultVariable: vendor
+          timeoutSeconds: 5
+
+  - id: approved
+    kind: end
+
+transitions:
+  - from: call-vendor
+    to: approved
+    priority: 0
+    when: "variables.vendor.statusCode == 200"
