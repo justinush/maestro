@@ -5,10 +5,10 @@ Smallest possible Maestro embedding example.
 ## What it demonstrates
 
 ```txt
-Decode workflow → Validate → NewInstance → RunUntilBlocked → (completed | ErrNeedsInput)
+maestro.Load(path) → Runtime.NewInstance → RunUntilBlockedResult → (RunCompleted | RunBlocked)
 ```
 
-The program drives the instance in a loop with **`RunUntilBlocked`** until the workflow either **finishes** or **pauses for a human**—not a single fixed number of calls.
+This uses **`pkg/maestro`**: **`Load`** performs **decode + validate** in one step, then **`NewInstance`** starts the run. The loop calls **`RunUntilBlockedResult()`** and branches on **`res.Status`** (for example **completed** vs **waiting for input**).
 
 ## Run
 
@@ -30,7 +30,7 @@ If you point at a different workflow, the step id or outcome may differ.
 
 ## Why it stops here
 
-This demo shows the smallest embedding path. It intentionally stops at the first **`human`** step so you can see how Maestro **pauses** the run and returns **`ErrNeedsInput`**, handing control back to your application (your API, worker, or UI would call **`SubmitInput`** next).
+This demo shows the smallest embedding path. It intentionally stops on the first **`human`** step: Maestro **pauses** the run and hands control back to your application (your API, worker, or UI would call **`SubmitInput`** next). In code, that pause shows up as **`engine.RunBlocked`** from **`RunUntilBlockedResult()`**.
 
 ## What this demo does not show
 
@@ -46,8 +46,8 @@ For persistence + **`SubmitInput`**, see **`../embed-kyc-service`**. For HTTP ac
 
 Treat this folder as a **learning sketch**, not code to paste unchanged into production—your routes, storage, and workflow IDs will look different. The ideas that usually **still help** when you adapt it:
 
-- **`pkg/definition`** — read the workflow YAML/JSON into a **`WorkflowDefinition`**.
-- **`pkg/validate`** — run the same checks as **`maestro validate`** so bad files fail before you create an instance.
-- **`pkg/engine`** — create an **`Instance`**, then drive it with **`RunUntilBlocked`**. When a step needs a person, call **`SubmitInput`** after **`ErrNeedsInput`** (see **`../embed-kyc-service`**).
+- **`pkg/maestro`** — **`Load`** / **`LoadWithValidate`** / **`Compile`** for a shorter first path; **`Runtime.NewInstance`** with **`InstanceOptions`** when you need run ids, variables, or a custom registry.
+- **`pkg/definition`**, **`pkg/validate`**, **`pkg/engine`** — use when you need full control (custom decode, validate flags, or **`NewInstance`** / **`RunUntilBlocked`** directly).
+- **`RunUntilBlockedResult`** — each return includes **`Status`**, **`StepID`**, and **`Events`** for the trace so far; check **`res.Err`** when **`Status`** is **`RunFailed`**.
 
-**`DefaultRegistry()`** here only knows built-in **`stub`** actions. When you add real side effects (HTTP calls, queues, your own integrations), build a **`Registry`**, **`Register`** your action types, and pass that registry in **`engine.Options`** instead of the default.
+**`DefaultRegistry()`** (via empty **`InstanceOptions`**) only knows built-in **`stub`** actions. For HTTP or your own integrations, set **`InstanceOptions.ActionRegistry`** or call **`engine.NewInstance`** with a registry you built.

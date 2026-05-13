@@ -19,6 +19,8 @@ type (
 	InputValidationError = iengine.InputValidationError
 	UnknownStepError     = iengine.UnknownStepError
 	Snapshot             = iengine.Snapshot
+	RunStatus            = iengine.RunStatus
+	RunResult            = iengine.RunResult
 )
 
 const (
@@ -29,6 +31,12 @@ const (
 	EventTransitionTaken EventType = iengine.EventTransitionTaken
 	EventBlocked         EventType = iengine.EventBlocked
 	EventCompleted       EventType = iengine.EventCompleted
+)
+
+const (
+	RunBlocked   RunStatus = iengine.RunBlocked
+	RunCompleted RunStatus = iengine.RunCompleted
+	RunFailed    RunStatus = iengine.RunFailed
 )
 
 var (
@@ -78,6 +86,14 @@ func NewStubRunner() ActionRunner {
 
 func NewHTTPRunner(client *http.Client) ActionRunner {
 	return iengine.NewHTTPRunner(client)
+}
+
+// RunResultOf returns RunUntilBlockedResult for in, or a failed result if in is nil.
+func RunResultOf(in *Instance) RunResult {
+	if in == nil {
+		return RunResult{Status: RunFailed, Err: ErrNilDefinition}
+	}
+	return in.RunUntilBlockedResult()
 }
 
 // AsInputValidationError returns (*InputValidationError, true) if err wraps that type.

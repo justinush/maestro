@@ -1,13 +1,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
-	"github.com/justinush/maestro/pkg/definition"
 	"github.com/justinush/maestro/pkg/engine"
-	"github.com/justinush/maestro/pkg/validate"
+	"github.com/justinush/maestro/pkg/maestro"
 )
 
 func main() {
@@ -16,42 +14,36 @@ func main() {
 		fmt.Fprintf(os.Stderr, "example: %s examples/workflows/workflow-v0-minimal.yaml\n", os.Args[0])
 		os.Exit(2)
 	}
-	path := os.Args[1]
 
-	// 1. Decode the workflow definition from YAML/JSON.
-	def, err := definition.DecodeFile(path)
+	// 1. Decode + validate (same checks as maestro validate).
+	rt, err := maestro.Load(os.Args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "decode: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	// 2. Validate before creating a runtime instance (same checks as maestro validate).
-	if err := validate.WorkflowDefinition(def, validate.Options{}); err != nil {
-		fmt.Fprintf(os.Stderr, "validate: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 3. Create an in-memory workflow instance.
-	in, err := engine.NewInstance(def, engine.Options{
-		ActionRegistry: engine.DefaultRegistry(),
-	})
+	// 2. Create an in-memory workflow instance (default stub registry unless you set InstanceOptions.ActionRegistry).
+	in, err := rt.NewInstance(maestro.InstanceOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "instance: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 4. Drive until the workflow completes or pauses for external input (e.g. human step → ErrNeedsInput).
+	// 3. Drive until the workflow completes, pauses on a human step, or fails.
 	for {
-		err := in.RunUntilBlocked()
-		switch {
-		case errors.Is(err, engine.ErrWorkflowCompleted):
-			fmt.Printf("completed at step %q\n", in.CurrentStepID())
+		res := in.RunUntilBlockedResult()
+		switch res.Status {
+		case engine.RunCompleted:
+			fmt.Printf("completed at step %q\n", res.StepID)
 			return
-		case errors.Is(err, engine.ErrNeedsInput):
-			fmt.Printf("blocked at %q (needs input — see examples/demos/embed-kyc-service)\n", in.CurrentStepID())
+		case engine.RunBlocked:
+			fmt.Printf("blocked at %q (needs input — see examples/demos/embed-kyc-service)\n", res.StepID)
 			return
-		case err != nil:
-			fmt.Fprintf(os.Stderr, "run: %v\n", err)
+		case engine.RunFailed:
+			fmt.Fprintf(os.Stderr, "run: %v\n", res.Err)
+			os.Exit(1)
+		default:
+			fmt.Fprintf(os.Stderr, "run: unexpected status %v\n", res.Status)
 			os.Exit(1)
 		}
 	}
