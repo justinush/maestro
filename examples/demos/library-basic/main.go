@@ -18,16 +18,20 @@ func main() {
 	}
 	path := os.Args[1]
 
+	// 1. Decode the workflow definition from YAML/JSON.
 	def, err := definition.DecodeFile(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "decode: %v\n", err)
 		os.Exit(1)
 	}
+
+	// 2. Validate before creating a runtime instance (same checks as maestro validate).
 	if err := validate.WorkflowDefinition(def, validate.Options{}); err != nil {
 		fmt.Fprintf(os.Stderr, "validate: %v\n", err)
 		os.Exit(1)
 	}
 
+	// 3. Create an in-memory workflow instance.
 	in, err := engine.NewInstance(def, engine.Options{
 		ActionRegistry: engine.DefaultRegistry(),
 	})
@@ -36,6 +40,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 4. Drive until the workflow completes or pauses for external input (e.g. human step → ErrNeedsInput).
 	for {
 		err := in.RunUntilBlocked()
 		switch {

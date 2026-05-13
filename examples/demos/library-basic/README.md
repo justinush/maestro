@@ -1,12 +1,14 @@
 # library-basic
 
-The smallest useful Maestro program: **load a workflow file**, **validate** it the same way the CLI does, spin up an **engine instance**, and call **`RunUntilBlocked` once**.
+Smallest possible Maestro embedding example.
 
-## Why it exists
+## What it demonstrates
 
-Most services eventually hit a **human** step (a form, a review queue, a mobile capture flow). At that point the engine stops with **`ErrNeedsInput`**. This demo stops there on purpose so you can see the skeleton without scrolling through persistence code.
+```txt
+Decode workflow → Validate → NewInstance → RunUntilBlocked → (completed | ErrNeedsInput)
+```
 
-If you want the full loop—**`SubmitInput`**, **`RunUntilBlocked`**, and **`pkg/run`**—open **`../embed-kyc-service`**.
+The program drives the instance in a loop with **`RunUntilBlocked`** until the workflow either **finishes** or **pauses for a human**—not a single fixed number of calls.
 
 ## Run
 
@@ -16,7 +18,29 @@ From the repository root:
 go run ./examples/demos/library-basic examples/workflows/workflow-v0-minimal.yaml
 ```
 
-You should see a line ending with **blocked at `"collect-profile"`** and a pointer to **`embed-kyc-service`**.
+## Expected output
+
+With the default **`workflow-v0-minimal.yaml`**, the first blocking step is **`collect-profile`**. You should see exactly:
+
+```txt
+blocked at "collect-profile" (needs input — see examples/demos/embed-kyc-service)
+```
+
+If you point at a different workflow, the step id or outcome may differ.
+
+## Why it stops here
+
+This demo shows the smallest embedding path. It intentionally stops at the first **`human`** step so you can see how Maestro **pauses** the run and returns **`ErrNeedsInput`**, handing control back to your application (your API, worker, or UI would call **`SubmitInput`** next).
+
+## What this demo does not show
+
+- Submitting human input (**`SubmitInput`**)
+- Persisting snapshots or **`pkg/run`** stores
+- Restoring a run from storage
+- Custom **`ActionRegistry`** runners (beyond default **`stub`**)
+- HTTP or other external integrations
+
+For persistence + **`SubmitInput`**, see **`../embed-kyc-service`**. For HTTP actions, see **`../http-runner`**.
 
 ## Takeaways for your app
 
