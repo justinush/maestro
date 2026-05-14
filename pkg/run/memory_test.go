@@ -36,8 +36,9 @@ func TestMemoryStore_CreateGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := in.RunUntilBlocked(); !errors.Is(err, engine.ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != engine.RunCompleted {
+		t.Fatalf("RunUntilBlocked: want RunCompleted, got %v err=%v", res.Status, res.Err)
 	}
 
 	rec := RecordFromInstance(in, def, 0)
@@ -155,8 +156,9 @@ func TestMemoryStore_InstanceFromRecordRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := in.RunUntilBlocked(); !errors.Is(err, engine.ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != engine.RunCompleted {
+		t.Fatalf("RunUntilBlocked: want RunCompleted, got %v err=%v", res.Status, res.Err)
 	}
 
 	rec := RecordFromInstance(in, def, 0)

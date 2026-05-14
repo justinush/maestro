@@ -67,8 +67,12 @@ func TestEngine_HappyPath_MinimalWorkflow(t *testing.T) {
 	}
 
 	// First run should stop at human step needing input.
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrNeedsInput) {
-		t.Fatalf("RunUntilBlocked: want ErrNeedsInput, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunBlocked {
+		t.Fatalf("RunUntilBlocked: want RunBlocked, got %v err=%v", res.Status, res.Err)
+	}
+	if got := res.StepID; got != "collect" {
+		t.Fatalf("StepID: want %q, got %q", "collect", got)
 	}
 	if got := in.CurrentStepID(); got != "collect" {
 		t.Fatalf("CurrentStepID: want %q, got %q", "collect", got)
@@ -87,8 +91,12 @@ func TestEngine_HappyPath_MinimalWorkflow(t *testing.T) {
 	}
 
 	// Next run should execute action step and complete.
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: want ErrWorkflowCompleted, got %v", err)
+	res = in.RunUntilBlocked()
+	if res.Status != RunCompleted {
+		t.Fatalf("RunUntilBlocked: want RunCompleted, got %v err=%v", res.Status, res.Err)
+	}
+	if got := res.StepID; got != "done" {
+		t.Fatalf("StepID at end: want %q, got %q", "done", got)
 	}
 	if got := in.CurrentStepID(); got != "done" {
 		t.Fatalf("CurrentStepID at end: want %q, got %q", "done", got)
@@ -129,9 +137,12 @@ func TestEngine_NoMatchingTransition(t *testing.T) {
 		t.Fatalf("NewInstance: %v", err)
 	}
 
-	err = in.RunUntilBlocked()
-	if !errors.Is(err, ErrNoMatchingTransition) {
-		t.Fatalf("RunUntilBlocked: want ErrNoMatchingTransition, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunFailed {
+		t.Fatalf("RunUntilBlocked: want RunFailed, got %v", res.Status)
+	}
+	if !errors.Is(res.Err, ErrNoMatchingTransition) {
+		t.Fatalf("RunUntilBlocked: want ErrNoMatchingTransition, got %v", res.Err)
 	}
 }
 
@@ -164,9 +175,12 @@ func TestEngine_UnknownActionType(t *testing.T) {
 		t.Fatalf("NewInstance: %v", err)
 	}
 
-	err = in.RunUntilBlocked()
-	if !errors.Is(err, ErrUnknownActionType) {
-		t.Fatalf("RunUntilBlocked: want ErrUnknownActionType, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunFailed {
+		t.Fatalf("RunUntilBlocked: want RunFailed, got %v", res.Status)
+	}
+	if !errors.Is(res.Err, ErrUnknownActionType) {
+		t.Fatalf("RunUntilBlocked: want ErrUnknownActionType, got %v", res.Err)
 	}
 }
 
@@ -209,12 +223,15 @@ func TestEngine_TransitionOrderingByPriorityThenDeclaration(t *testing.T) {
 		t.Fatalf("NewInstance: %v", err)
 	}
 
-	err = in.RunUntilBlocked()
-	if errors.Is(err, ErrUnknownActionType) {
-		t.Fatalf("RunUntilBlocked picked the wrong transition (a->c). Got %v", err)
+	res := in.RunUntilBlocked()
+	if errors.Is(res.Err, ErrUnknownActionType) {
+		t.Fatalf("RunUntilBlocked picked the wrong transition (a->c). Got %v", res.Err)
 	}
-	if !errors.Is(err, ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: want ErrWorkflowCompleted, got %v", err)
+	if res.Status != RunCompleted {
+		t.Fatalf("RunUntilBlocked: want RunCompleted, got %v err=%v", res.Status, res.Err)
+	}
+	if got := res.StepID; got != "end" {
+		t.Fatalf("StepID: want %q, got %q", "end", got)
 	}
 	if got := in.CurrentStepID(); got != "end" {
 		t.Fatalf("CurrentStepID: want %q, got %q", "end", got)
@@ -257,8 +274,9 @@ func TestEngine_SubmitInput_EnforcesInputSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewInstance: %v", err)
 	}
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrNeedsInput) {
-		t.Fatalf("RunUntilBlocked: want ErrNeedsInput, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunBlocked {
+		t.Fatalf("RunUntilBlocked: want RunBlocked, got %v err=%v", res.Status, res.Err)
 	}
 
 	// Missing required fullName => should fail.
@@ -326,8 +344,9 @@ func TestEngine_SubmitInput_NoMatchingTransition_StaysOnHumanStep(t *testing.T) 
 		t.Fatalf("NewInstance: %v", err)
 	}
 
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrNeedsInput) {
-		t.Fatalf("RunUntilBlocked: want ErrNeedsInput, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunBlocked {
+		t.Fatalf("RunUntilBlocked: want RunBlocked, got %v err=%v", res.Status, res.Err)
 	}
 	if got := in.CurrentStepID(); got != "collect" {
 		t.Fatalf("CurrentStepID: want %q, got %q", "collect", got)
@@ -387,8 +406,9 @@ func TestEngine_CustomActionRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewInstance: %v", err)
 	}
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: want ErrWorkflowCompleted, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunCompleted {
+		t.Fatalf("RunUntilBlocked: want RunCompleted, got %v err=%v", res.Status, res.Err)
 	}
 	if in.Variables()["custom"] != "ok" {
 		t.Fatalf("expected custom variable set by runner")
@@ -442,8 +462,9 @@ func TestEngine_HTTPRunner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewInstance: %v", err)
 	}
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: want ErrWorkflowCompleted, got %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunCompleted {
+		t.Fatalf("RunUntilBlocked: want RunCompleted, got %v err=%v", res.Status, res.Err)
 	}
 
 	v := in.Variables()["httpResult"]
@@ -483,8 +504,9 @@ func TestEngine_SnapshotRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewInstance: %v", err)
 	}
-	if err := in.RunUntilBlocked(); !errors.Is(err, ErrWorkflowCompleted) {
-		t.Fatalf("RunUntilBlocked: %v", err)
+	res := in.RunUntilBlocked()
+	if res.Status != RunCompleted {
+		t.Fatalf("RunUntilBlocked: %v (status=%v)", res.Err, res.Status)
 	}
 
 	snap := in.Snapshot()

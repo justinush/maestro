@@ -105,22 +105,16 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 	stepLimit := sc.maxSteps()
 
 	for range stepLimit {
-		err := in.RunUntilBlocked()
-		switch {
-		case err == nil:
-			if err := maybeTrace(); err != nil {
-				return err
-			}
-			return fmt.Errorf("simulate: stopped without error at step %q", in.CurrentStepID())
-
-		case errors.Is(err, engine.ErrWorkflowCompleted):
+		res := in.RunUntilBlocked()
+		switch res.Status {
+		case engine.RunCompleted:
 			if err := maybeTrace(); err != nil {
 				return err
 			}
 			return checkScenarioAssertionsOnCompletion(cmd, sc, in)
 
-		case errors.Is(err, engine.ErrNeedsInput):
-			stepID := in.CurrentStepID()
+		case engine.RunBlocked:
+			stepID := res.StepID
 			if inputIdx >= len(sc.Inputs) {
 				if err := maybeTrace(); err != nil {
 					return err
@@ -162,7 +156,8 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 			}
 			continue
 
-		default:
+		case engine.RunFailed:
+			err := res.Err
 			if sc.ExpectErrorContains != "" {
 				if traceErr := maybeTrace(); traceErr != nil {
 					return traceErr
@@ -174,6 +169,12 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 				return traceErr
 			}
 			return err
+
+		default:
+			if err := maybeTrace(); err != nil {
+				return err
+			}
+			return fmt.Errorf("simulate: unexpected run status %v", res.Status)
 		}
 	}
 

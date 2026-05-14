@@ -105,7 +105,7 @@ action runners
 your app
 ```
 
-The `maestro` binary is thin glue over `pkg/validate` and `pkg/engine`—same code paths you’d use in production.
+The `maestro` binary is thin glue over `pkg/validate` and `pkg/engine`—the same primitives you embed (`pkg/maestro` wraps decode + validate for a shorter first path).
 
 ## Requirements
 
@@ -194,12 +194,13 @@ ok (completed "done")
 
 Import paths (same module you’d `go get` after tagging):
 
+- `github.com/justinush/maestro/pkg/maestro` — **`Load`** / **`LoadWithValidate`** / **`Compile`**: decode + validate in one step; **`Runtime.NewInstance`** with **`InstanceOptions`** (optional registry, run id, initial variables).
 - `github.com/justinush/maestro/pkg/definition` — types and strict `DecodeFile`.
-- `github.com/justinush/maestro/pkg/engine` — `NewInstance`, `RunUntilBlocked`, `SubmitInput`, registry, `ActionRunner`, events, errors, snapshots.
+- `github.com/justinush/maestro/pkg/engine` — `NewInstance`, **`RunUntilBlocked()`** → **`RunResult`** (`Status`: blocked / completed / failed; `StepID`, `Events`, `Err` when failed), `SubmitInput`, registry, `ActionRunner`, snapshots. Sentinel errors like `ErrNeedsInput` / `ErrWorkflowCompleted` remain defined for compatibility but normal stops are expressed via **`RunResult.Status`**.
 - `github.com/justinush/maestro/pkg/validate` — same checks as `maestro validate`.
 - `github.com/justinush/maestro/pkg/run` — `Store`, `MemoryStore`, `RunRecord` around `engine.Snapshot` with optimistic `revision`; reload with `NewInstanceFromSnapshot` and the **same** workflow definition.
 
-Happy path: decode → optionally validate → `NewInstance` → loop `RunUntilBlocked` / `SubmitInput` → snapshot to a store when you care about survival past the process.
+Happy path: **`maestro.Load`** (or decode + validate) → `NewInstance` → call **`RunUntilBlocked()`** and switch on **`RunResult.Status`**; on **`RunBlocked`**, call **`SubmitInput`** and drive again until **`RunCompleted`** or **`RunFailed`**; snapshot to a store when you care about survival past the process.
 
 Tiny embed example:
 
@@ -207,7 +208,7 @@ Tiny embed example:
 go run ./examples/demos/library-basic examples/workflows/workflow-v0-minimal.yaml
 ```
 
-That one stops at the first human step on purpose—it’s a skeleton, not a full product.
+That one uses **`pkg/maestro`** and stops at the first human step on purpose (`RunBlocked`)—see **`examples/demos/embed-kyc-service`** for **`SubmitInput`** and **`pkg/run`**, and **`examples/demos/http-runner`** for HTTP actions.
 
 When you publish versions, pin in the consumer’s `go.mod`, e.g. `require github.com/justinush/maestro v0.1.0`.
 
@@ -257,7 +258,7 @@ When you’re ready:
 
 ## Current scope and non-goals
 
-**In scope today** — synchronous stepping: `RunUntilBlocked` walks `action` steps until it blocks or finishes; `human` waits on `SubmitInput`. v0.1 schema, CEL guards, JSON Schema on human input. CLI `validate` / `simulate`. Trace for the life of the instance. Go packages above.
+**In scope today** — synchronous stepping: **`RunUntilBlocked()`** walks `action` steps internally until **`RunBlocked`** (human), **`RunCompleted`** (terminal), or **`RunFailed`**; **`human`** waits on **`SubmitInput`**. v0.1 schema, CEL guards, JSON Schema on human input. CLI `validate` / `simulate`. Trace for the life of the instance. Go packages above.
 
 **Not trying to be (yet)** — a distributed workflow cluster, a built-in scheduler or retry engine, a drag-and-drop designer, or a hosted multi-tenant product. We also don’t auto-fetch arbitrary external JSON Schema `$ref` chains (custom `$id` is fine; deep ref loading isn’t).
 
@@ -265,7 +266,6 @@ When you’re ready:
 
 Ideas we care about but haven’t promised on a calendar:
 
-- Clearer “stopped because …” surface for embedders than sentinel errors alone.
 - Threading `context.Context` through the run loop and runners.
 - Example `Store` implementations people can copy for SQL.
 - Trace timestamps, optional persistence, stable JSON for exporters.

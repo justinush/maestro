@@ -88,12 +88,12 @@ func NewHTTPRunner(client *http.Client) ActionRunner {
 	return iengine.NewHTTPRunner(client)
 }
 
-// RunResultOf returns RunUntilBlockedResult for in, or a failed result if in is nil.
+// RunResultOf returns RunUntilBlocked for in, or a failed result if in is nil.
 func RunResultOf(in *Instance) RunResult {
 	if in == nil {
 		return RunResult{Status: RunFailed, Err: ErrNilDefinition}
 	}
-	return in.RunUntilBlockedResult()
+	return in.RunUntilBlocked()
 }
 
 // AsInputValidationError returns (*InputValidationError, true) if err wraps that type.

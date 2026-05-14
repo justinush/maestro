@@ -18,6 +18,8 @@ go run ./examples/demos/http-runner
 
 `workflow.yaml` embeds a placeholder URL, **`__HTTP_BASE__`**. `main.go` substitutes the mock server’s URL before parse so we never hard-code a host in the workflow file.
 
+**Execution:** **`RunUntilBlocked()`** returns a **`RunResult`**. The demo expects **`RunCompleted`** with **`res.StepID == "approved"`**; failures use **`RunFailed`** and **`res.Err`**.
+
 You should see a **vendor snapshot** (status, headers, body), a short **trace** ending in **`run.completed`**, and a closing **`ok:`** line.
 
 ## Takeaways for your app
@@ -27,6 +29,7 @@ The mock server and **`%#v`** logging exist to keep the demo small. Your vendor 
 - Use **`httptest`** in unit tests; use a configured **`http.Client`** (timeouts, TLS, tracing) in production.
 - **`srv.Client()`** is required with **`httptest`** so requests route to the test server correctly.
 - Prefer **`json.MarshalIndent`** (or your own struct) over **`%#v`** when you log **`variables["vendor"]`**—`%#v` is fine for this demo but noisy in real logs.
+- Use **`RunResult`** from **`RunUntilBlocked()`** to distinguish **done** vs **blocked** vs **failed** without sentinel **`error`** checks.
 
 ## Files
 

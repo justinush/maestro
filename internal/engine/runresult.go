@@ -1,6 +1,6 @@
 package engine
 
-// RunStatus describes why RunUntilBlockedResult stopped.
+// RunStatus describes why RunUntilBlocked stopped.
 type RunStatus int
 
 const (
@@ -14,7 +14,7 @@ const (
 	RunFailed
 )
 
-// RunResult is the outcome of Instance.RunUntilBlockedResult.
+// RunResult is the outcome of Instance.RunUntilBlocked.
 // For RunBlocked and RunCompleted, Err is nil.
 type RunResult struct {
 	Status RunStatus

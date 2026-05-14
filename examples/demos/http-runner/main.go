@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	_ "embed"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -58,14 +57,18 @@ func run() error {
 		return fmt.Errorf("new instance: %w", err)
 	}
 
-	if err := in.RunUntilBlocked(); err != nil {
-		if !errors.Is(err, engine.ErrWorkflowCompleted) {
-			return fmt.Errorf("run: %w", err)
-		}
+	res := in.RunUntilBlocked()
+	switch res.Status {
+	case engine.RunCompleted:
+		// ok
+	case engine.RunFailed:
+		return fmt.Errorf("run: %w", res.Err)
+	default:
+		return fmt.Errorf("run: unexpected status %v", res.Status)
 	}
 
-	if in.CurrentStepID() != "approved" {
-		return fmt.Errorf("want terminal step approved, got %q", in.CurrentStepID())
+	if res.StepID != "approved" {
+		return fmt.Errorf("want terminal step approved, got %q", res.StepID)
 	}
 
 	v, ok := in.Variables()["vendor"]

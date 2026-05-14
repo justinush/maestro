@@ -22,29 +22,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 2. Create an in-memory workflow instance (default stub registry unless you set InstanceOptions.ActionRegistry).
+	def := rt.Definition()
+	if def != nil {
+		fmt.Printf("loaded workflow %q (version %q)\n", def.ID, def.Version)
+	}
+
+	// 2. Create an in-memory workflow instance (default stub registry when ActionRegistry is unset).
 	in, err := rt.NewInstance(maestro.InstanceOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "instance: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 3. Drive until the workflow completes, pauses on a human step, or fails.
-	for {
-		res := in.RunUntilBlockedResult()
-		switch res.Status {
-		case engine.RunCompleted:
-			fmt.Printf("completed at step %q\n", res.StepID)
-			return
-		case engine.RunBlocked:
-			fmt.Printf("blocked at %q (needs input — see examples/demos/embed-kyc-service)\n", res.StepID)
-			return
-		case engine.RunFailed:
-			fmt.Fprintf(os.Stderr, "run: %v\n", res.Err)
-			os.Exit(1)
-		default:
-			fmt.Fprintf(os.Stderr, "run: unexpected status %v\n", res.Status)
-			os.Exit(1)
-		}
+	// 3. One drive: engine runs internally until blocked, completed, or failed.
+	res := in.RunUntilBlocked()
+	switch res.Status {
+	case engine.RunCompleted:
+		fmt.Printf("completed at step %q\n", res.StepID)
+		return
+	case engine.RunBlocked:
+		fmt.Printf("blocked at %q (needs input — see examples/demos/embed-kyc-service)\n", res.StepID)
+		return
+	case engine.RunFailed:
+		fmt.Fprintf(os.Stderr, "run: %v\n", res.Err)
+		os.Exit(1)
+	default:
+		fmt.Fprintf(os.Stderr, "run: unexpected status %v\n", res.Status)
+		os.Exit(1)
 	}
 }

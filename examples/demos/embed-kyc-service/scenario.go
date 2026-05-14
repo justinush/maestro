@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
-	"errors"
 	"fmt"
 
 	"github.com/justinush/maestro/pkg/definition"
@@ -43,12 +42,14 @@ func runDemo() error {
 		return fmt.Errorf("new instance: %w", err)
 	}
 
-	if err := in.RunUntilBlocked(); err != nil {
-		if !isErrNeedsInput(err) {
-			return fmt.Errorf("first run: %w", err)
+	res := in.RunUntilBlocked()
+	if res.Status != engine.RunBlocked {
+		if res.Err != nil {
+			return fmt.Errorf("first run: want RunBlocked, got %v: %w", res.Status, res.Err)
 		}
+		return fmt.Errorf("first run: want RunBlocked, got %v", res.Status)
 	}
-	fmt.Printf("blocked at: %s\n", in.CurrentStepID())
+	fmt.Printf("blocked at: %s\n", res.StepID)
 
 	rec := run.RecordFromInstance(in, def, 0)
 	if rec == nil {
@@ -83,12 +84,12 @@ func runDemo() error {
 	fmt.Printf("continued to: %s\n", in.CurrentStepID())
 
 	for {
-		err := in.RunUntilBlocked()
-		switch {
-		case isErrNeedsInput(err):
-			return fmt.Errorf("unexpected block at step %q", in.CurrentStepID())
-		case isErrWorkflowCompleted(err):
-			fmt.Printf("completed at: %s\n", in.CurrentStepID())
+		res := in.RunUntilBlocked()
+		switch res.Status {
+		case engine.RunBlocked:
+			return fmt.Errorf("unexpected block at step %q", res.StepID)
+		case engine.RunCompleted:
+			fmt.Printf("completed at: %s\n", res.StepID)
 			if err := persistFinal(ctx, store, in, def); err != nil {
 				return err
 			}
@@ -98,8 +99,10 @@ func runDemo() error {
 				fmt.Println(ev.String())
 			}
 			return nil
+		case engine.RunFailed:
+			return fmt.Errorf("run: %w", res.Err)
 		default:
-			return fmt.Errorf("run: %w", err)
+			return fmt.Errorf("run: unexpected status %v", res.Status)
 		}
 	}
 }
@@ -127,12 +130,4 @@ func persistFinal(ctx context.Context, store run.Store, in *engine.Instance, def
 		return fmt.Errorf("final save: %w", err)
 	}
 	return nil
-}
-
-func isErrNeedsInput(err error) bool {
-	return errors.Is(err, engine.ErrNeedsInput)
-}
-
-func isErrWorkflowCompleted(err error) bool {
-	return errors.Is(err, engine.ErrWorkflowCompleted)
 }

@@ -7,28 +7,9 @@ import (
 )
 
 // RunUntilBlocked drives execution forward until it reaches a stop condition.
-// It returns ErrNeedsInput when blocked on a human step, ErrWorkflowCompleted when the
-// instance reaches a terminal end step, and a non-nil error for any execution failure.
-func (in *Instance) RunUntilBlocked() error {
-	r := in.RunUntilBlockedResult()
-	switch r.Status {
-	case RunBlocked:
-		return ErrNeedsInput
-	case RunCompleted:
-		return ErrWorkflowCompleted
-	case RunFailed:
-		if r.Err != nil {
-			return r.Err
-		}
-		return fmt.Errorf("engine: RunFailed without err")
-	default:
-		return fmt.Errorf("engine: unexpected run status %v", r.Status)
-	}
-}
-
-// RunUntilBlockedResult drives execution like RunUntilBlocked but reports normal outcomes
-// as RunStatus values instead of sentinel errors. Err is only set when Status == RunFailed.
-func (in *Instance) RunUntilBlockedResult() RunResult {
+// It returns RunBlocked on a human step, RunCompleted on a terminal end step,
+// or RunFailed with Err set for any execution failure.
+func (in *Instance) RunUntilBlocked() RunResult {
 	if in == nil {
 		return RunResult{Status: RunFailed, Err: ErrNilDefinition}
 	}
