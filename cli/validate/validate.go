@@ -3,7 +3,7 @@ package validate
 import (
 	"errors"
 
-	apivalidate "github.com/justinush/maestro/internal/validate"
+	apivalidate "github.com/justinush/maestro/pkg/validate"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ func NewCommand() *cobra.Command {
 			if file == "" {
 				return errors.New("required flag: --file / -f")
 			}
-			return apivalidate.Workflow(file, opts)
+			return apivalidate.WorkflowFile(file, opts)
 		},
 	}
 

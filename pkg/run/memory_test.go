@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/justinush/maestro/internal/definition"
+	"github.com/justinush/maestro/pkg/definition"
 	"github.com/justinush/maestro/pkg/engine"
 )
 

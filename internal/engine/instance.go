@@ -20,26 +20,23 @@ type Options struct {
 }
 
 type Instance struct {
-	def *definition.WorkflowDefinition
-
-	runID string
-
+	def         *definition.WorkflowDefinition
+	runID       string
 	traceGuards bool
+	stepsByID   map[string]definition.Step
+	terminal    map[string]struct{}
+	actionReg   *Registry
 
+	// Execution state
 	currentStepID string
 	variables     map[string]any
+	onEnterRan    bool
 
-	stepsByID map[string]definition.Step
-	terminal  map[string]struct{}
-
-	onEnterRan bool
-
-	actionReg *Registry
-
+	// Lazy caches
 	inputSchemas inputSchemaCache
+	celPrograms  map[int]cel.Program
 
-	celPrograms map[int]cel.Program
-
+	// Trace
 	events  []Event
 	nextSeq int
 }
@@ -87,12 +84,12 @@ func newInstanceShell(def *definition.WorkflowDefinition, opts Options) (*Instan
 		def:           def,
 		runID:         opts.RunID,
 		traceGuards:   opts.TraceGuards,
-		currentStepID: "",
-		variables:     nil,
 		stepsByID:     stepsByID,
 		terminal:      term,
-		onEnterRan:    false,
 		actionReg:     reg,
+		currentStepID: "",
+		variables:     nil,
+		onEnterRan:    false,
 		celPrograms:   nil,
 		events:        nil,
 		nextSeq:       0,
