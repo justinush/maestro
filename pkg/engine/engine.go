@@ -21,6 +21,8 @@ type (
 	Snapshot             = iengine.Snapshot
 	RunStatus            = iengine.RunStatus
 	RunResult            = iengine.RunResult
+	SubmitInputStatus    = iengine.SubmitInputStatus
+	SubmitInputResult    = iengine.SubmitInputResult
 )
 
 const (
@@ -39,6 +41,12 @@ const (
 	RunFailed    RunStatus = iengine.RunFailed
 )
 
+const (
+	SubmitStayOnStep SubmitInputStatus = iengine.SubmitStayOnStep
+	SubmitAdvanced   SubmitInputStatus = iengine.SubmitAdvanced
+	SubmitFailed     SubmitInputStatus = iengine.SubmitFailed
+)
+
 var (
 	ErrNilDefinition        = iengine.ErrNilDefinition
 	ErrEmptyInitialStepID   = iengine.ErrEmptyInitialStepID
@@ -46,20 +54,18 @@ var (
 	ErrEmptyStepID          = iengine.ErrEmptyStepID
 	ErrEmptyStepKind        = iengine.ErrEmptyStepKind
 	ErrDuplicateStepID      = iengine.ErrDuplicateStepID
-	ErrNeedsInput           = iengine.ErrNeedsInput
-	ErrWorkflowCompleted    = iengine.ErrWorkflowCompleted
 	ErrNoMatchingTransition = iengine.ErrNoMatchingTransition
 	ErrUnknownActionType    = iengine.ErrUnknownActionType
 	ErrCELGuard             = iengine.ErrCELGuard
 )
 
-// NewInstance creates an instance at initialStepId. def must be non-nil.
+// NewInstance starts a run at the workflow initial step. def must be non-nil.
 func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
 	return iengine.NewInstance(def, opts)
 }
 
-// NewInstanceFromSnapshot restores execution state from Snapshot.
-// def must be the same workflow used when the snapshot was taken (same steps/transitions).
+// NewInstanceFromSnapshot restores state from a snapshot.
+// Use the same workflow definition (id, version, graph) as when the snapshot was taken.
 func NewInstanceFromSnapshot(def *definition.WorkflowDefinition, snap Snapshot, opts Options) (*Instance, error) {
 	return iengine.NewInstanceFromSnapshot(def, snap, opts)
 }
@@ -88,15 +94,7 @@ func NewHTTPRunner(client *http.Client) ActionRunner {
 	return iengine.NewHTTPRunner(client)
 }
 
-// RunResultOf returns RunUntilBlocked for in, or a failed result if in is nil.
-func RunResultOf(in *Instance) RunResult {
-	if in == nil {
-		return RunResult{Status: RunFailed, Err: ErrNilDefinition}
-	}
-	return in.RunUntilBlocked()
-}
-
-// AsInputValidationError returns (*InputValidationError, true) if err wraps that type.
+// AsInputValidationError reports whether err is an *InputValidationError from SubmitInput.
 func AsInputValidationError(err error) (*InputValidationError, bool) {
 	if v, ok := errors.AsType[*InputValidationError](err); ok {
 		return v, true
@@ -104,7 +102,7 @@ func AsInputValidationError(err error) (*InputValidationError, bool) {
 	return nil, false
 }
 
-// AsUnknownStepError returns (*UnknownStepError, true) if err is that type.
+// AsUnknownStepError reports whether err is an *UnknownStepError.
 func AsUnknownStepError(err error) (*UnknownStepError, bool) {
 	if v, ok := errors.AsType[*UnknownStepError](err); ok {
 		return v, true

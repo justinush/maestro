@@ -1,8 +1,8 @@
 package validate
 
 import (
-	"github.com/justinush/maestro/internal/definition"
 	ivalidate "github.com/justinush/maestro/internal/validate"
+	"github.com/justinush/maestro/pkg/definition"
 )
 
 type Options = ivalidate.Options

@@ -118,7 +118,8 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 	return in, nil
 }
 
-// Definition returns the workflow backing this instance, or nil if in is nil; Do not mutate it.
+// Definition returns the workflow for this instance, or nil when the receiver is nil.
+// Do not mutate the returned value.
 func (in *Instance) Definition() *definition.WorkflowDefinition {
 	if in == nil {
 		return nil

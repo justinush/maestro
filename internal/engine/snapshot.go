@@ -7,8 +7,8 @@ import (
 	"github.com/justinush/maestro/internal/definition"
 )
 
-// Snapshot is JSON-friendly execution state for persistence (variables, position, trace).
-// CEL programs and input-schema cache are not stored; they are rebuilt when restoring.
+// Snapshot is JSON-friendly state for persistence (step, variables, trace).
+// CEL programs and input-schema cache are rebuilt on restore, not stored.
 type Snapshot struct {
 	RunID         string         `json:"runId"`
 	TraceGuards   bool           `json:"traceGuards"`
@@ -19,7 +19,7 @@ type Snapshot struct {
 	NextSeq       int            `json:"nextSeq"`
 }
 
-// Snapshot returns a deep-ish copy of runtime state safe to persist (events and variables copied).
+// Snapshot copies variables and events for persistence. Nested map values may still be shared.
 func (in *Instance) Snapshot() Snapshot {
 	if in == nil {
 		return Snapshot{}

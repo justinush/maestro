@@ -1,6 +1,6 @@
 package validate
 
-// Options configures Workflow.
+// Options configures Workflow and WorkflowDefinition validation.
 type Options struct {
 	SchemaPath string
 

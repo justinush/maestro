@@ -8,26 +8,22 @@ import (
 	"github.com/justinush/maestro/pkg/validate"
 )
 
-// Runtime is a decoded, validated workflow ready to create engine instances.
-// It is a small facade over pkg/definition + pkg/validate for first-touch DX.
+// Runtime holds a validated workflow ready for NewInstance.
 type Runtime struct {
 	def *definition.WorkflowDefinition
 }
 
-// Load reads a workflow file from disk and validates it with default options.
+// Load reads and validates a workflow file (default validate options).
 func Load(path string) (*Runtime, error) {
-	def, err := definition.DecodeFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("maestro load: decode: %w", err)
-	}
-	if err := validate.WorkflowDefinition(def, validate.Options{}); err != nil {
-		return nil, fmt.Errorf("maestro load: validate: %w", err)
-	}
-	return &Runtime{def: def}, nil
+	return loadFromPath(path, validate.Options{})
 }
 
-// LoadWithValidate is like Load but allows custom validate.Options (schema path, verbose, etc.)
+// LoadWithValidate is Load with custom validate.Options (custom schema path, verbose errors, etc.).
 func LoadWithValidate(path string, vopts validate.Options) (*Runtime, error) {
+	return loadFromPath(path, vopts)
+}
+
+func loadFromPath(path string, vopts validate.Options) (*Runtime, error) {
 	def, err := definition.DecodeFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("maestro load: decode: %w", err)
@@ -38,7 +34,7 @@ func LoadWithValidate(path string, vopts validate.Options) (*Runtime, error) {
 	return &Runtime{def: def}, nil
 }
 
-// Compile validates an in-memory definition (for embedded YAML, generated workflows, etc.)
+// Compile validates an in-memory definition (embedded YAML, tests, codegen).
 func Compile(def *definition.WorkflowDefinition, vopts validate.Options) (*Runtime, error) {
 	if def == nil {
 		return nil, fmt.Errorf("maestro compile: nil definition")
@@ -49,7 +45,7 @@ func Compile(def *definition.WorkflowDefinition, vopts validate.Options) (*Runti
 	return &Runtime{def: def}, nil
 }
 
-// Definition returns the validated workflow. Do not mutate it.
+// Definition returns the workflow. Do not mutate it.
 func (rt *Runtime) Definition() *definition.WorkflowDefinition {
 	if rt == nil {
 		return nil
@@ -57,7 +53,7 @@ func (rt *Runtime) Definition() *definition.WorkflowDefinition {
 	return rt.def
 }
 
-// InstanceOptions configures engine.NewInstance for this runtime.
+// InstanceOptions is passed to NewInstance. Zero value is fine (default stub registry).
 type InstanceOptions struct {
 	RunID            string
 	InitialVariables map[string]any
@@ -65,7 +61,7 @@ type InstanceOptions struct {
 	ActionRegistry   *engine.Registry
 }
 
-// NewInstance creates an engine instance for this runtime's definition.
+// NewInstance creates an engine instance for this workflow.
 func (rt *Runtime) NewInstance(opts InstanceOptions) (*engine.Instance, error) {
 	if rt == nil || rt.def == nil {
 		return nil, engine.ErrNilDefinition

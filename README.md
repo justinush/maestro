@@ -196,11 +196,11 @@ Import paths (same module you’d `go get` after tagging):
 
 - `github.com/justinush/maestro/pkg/maestro` — **`Load`** / **`LoadWithValidate`** / **`Compile`**: decode + validate in one step; **`Runtime.NewInstance`** with **`InstanceOptions`** (optional registry, run id, initial variables).
 - `github.com/justinush/maestro/pkg/definition` — types and strict `DecodeFile`.
-- `github.com/justinush/maestro/pkg/engine` — `NewInstance`, **`RunUntilBlocked()`** → **`RunResult`** (`Status`: blocked / completed / failed; `StepID`, `Events`, `Err` when failed), `SubmitInput`, registry, `ActionRunner`, snapshots. Sentinel errors like `ErrNeedsInput` / `ErrWorkflowCompleted` remain defined for compatibility but normal stops are expressed via **`RunResult.Status`**.
+- `github.com/justinush/maestro/pkg/engine` — `NewInstance`, **`RunUntilBlocked()`** → **`RunResult`**, **`SubmitInput()`** → **`SubmitInputResult`**, registry, `ActionRunner`, snapshots.
 - `github.com/justinush/maestro/pkg/validate` — same checks as `maestro validate`.
 - `github.com/justinush/maestro/pkg/run` — `Store`, `MemoryStore`, `RunRecord` around `engine.Snapshot` with optimistic `revision`; reload with `NewInstanceFromSnapshot` and the **same** workflow definition.
 
-Happy path: **`maestro.Load`** (or decode + validate) → `NewInstance` → call **`RunUntilBlocked()`** and switch on **`RunResult.Status`**; on **`RunBlocked`**, call **`SubmitInput`** and drive again until **`RunCompleted`** or **`RunFailed`**; snapshot to a store when you care about survival past the process.
+Happy path: **`maestro.Load`** (or decode + validate) → `NewInstance` → **`RunUntilBlocked()`** / switch on **`RunResult.Status`** → on **`RunBlocked`**, **`SubmitInput()`** / switch on **`SubmitInputResult.Status`** → repeat until **`RunCompleted`** or **`RunFailed`**; snapshot via **`pkg/run`** when needed.
 
 Tiny embed example:
 

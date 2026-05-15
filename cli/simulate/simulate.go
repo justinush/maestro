@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/justinush/maestro/internal/definition"
-	"github.com/justinush/maestro/internal/engine"
-	"github.com/justinush/maestro/internal/validate"
+	"github.com/justinush/maestro/pkg/definition"
+	"github.com/justinush/maestro/pkg/engine"
+	"github.com/justinush/maestro/pkg/validate"
 	"github.com/spf13/cobra"
 )
 
@@ -132,27 +132,32 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 				return fmt.Errorf("simulate: expected input for step %q, got input for %q", stepID, next.StepID)
 			}
 
-			advanced, err := in.SubmitInput(next.Data)
-			if err != nil {
+			sub := in.SubmitInput(next.Data)
+			switch sub.Status {
+			case engine.SubmitAdvanced:
+				// continue outer loop
+			case engine.SubmitStayOnStep:
+				if trace {
+					_, _ = fmt.Fprintf(
+						cmd.ErrOrStderr(),
+						"simulate: input accepted at %q but no transition matched; staying on step\n",
+						stepID,
+					)
+				}
+			case engine.SubmitFailed:
+				err := sub.Err
 				if sc.ExpectErrorContains != "" {
 					if traceErr := maybeTrace(); traceErr != nil {
 						return traceErr
 					}
 					return checkScenarioAssertionsOnError(cmd, sc, err)
 				}
-
 				if traceErr := maybeTrace(); traceErr != nil {
 					return traceErr
 				}
 				return err
-			}
-
-			if trace && !advanced {
-				_, _ = fmt.Fprintf(
-					cmd.ErrOrStderr(),
-					"simulate: input accepted at %q but no transition matched; staying on step\n",
-					stepID,
-				)
+			default:
+				return fmt.Errorf("simulate: unexpected submit status %v", sub.Status)
 			}
 			continue
 

@@ -18,10 +18,6 @@ var (
 
 	ErrDuplicateStepID = errors.New("engine: duplicate step id")
 
-	ErrNeedsInput = errors.New("engine: human step needs input")
-
-	ErrWorkflowCompleted = errors.New("engine: workflow completed")
-
 	ErrNoMatchingTransition = errors.New("engine: no matching transition")
 
 	ErrUnknownActionType = errors.New("engine: unknown action type")

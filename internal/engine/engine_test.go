@@ -79,15 +79,12 @@ func TestEngine_HappyPath_MinimalWorkflow(t *testing.T) {
 	}
 
 	// User submits input; engine advances to action step but does not auto-run until we call RunUntilBlocked again.
-	advanced, err := in.SubmitInput(map[string]any{"fullName": "Justin"})
-	if err != nil {
-		t.Fatalf("SubmitInput: %v", err)
+	sub := in.SubmitInput(map[string]any{"fullName": "Justin"})
+	if sub.Status != SubmitAdvanced {
+		t.Fatalf("SubmitInput: want SubmitAdvanced, got %v err=%v", sub.Status, sub.Err)
 	}
-	if !advanced {
-		t.Fatalf("SubmitInput: expected to advance from %q", "collect")
-	}
-	if got := in.CurrentStepID(); got != "run" {
-		t.Fatalf("CurrentStepID after SubmitInput: want %q, got %q", "run", got)
+	if got := sub.StepID; got != "run" {
+		t.Fatalf("StepID after SubmitInput: want %q, got %q", "run", got)
 	}
 
 	// Next run should execute action step and complete.
@@ -280,25 +277,22 @@ func TestEngine_SubmitInput_EnforcesInputSchema(t *testing.T) {
 	}
 
 	// Missing required fullName => should fail.
-	_, err = in.SubmitInput(map[string]any{})
-	if err == nil {
-		t.Fatal("expected input schema error")
+	sub := in.SubmitInput(map[string]any{})
+	if sub.Status != SubmitFailed {
+		t.Fatalf("SubmitInput: want SubmitFailed, got %v", sub.Status)
 	}
 	var ive *InputValidationError
-	if !errors.As(err, &ive) {
-		t.Fatalf("expected InputValidationError, got %T: %v", err, err)
+	if !errors.As(sub.Err, &ive) {
+		t.Fatalf("expected InputValidationError, got %T: %v", sub.Err, sub.Err)
 	}
 	if ive.StepID != "collect" {
 		t.Fatalf("StepID: want %q, got %q", "collect", ive.StepID)
 	}
 
 	// Valid payload should pass and advance.
-	advanced, err := in.SubmitInput(map[string]any{"fullName": "Justin"})
-	if err != nil {
-		t.Fatalf("SubmitInput(valid): %v", err)
-	}
-	if !advanced {
-		t.Fatalf("SubmitInput(valid): expected to advance")
+	sub = in.SubmitInput(map[string]any{"fullName": "Justin"})
+	if sub.Status != SubmitAdvanced {
+		t.Fatalf("SubmitInput(valid): want SubmitAdvanced, got %v err=%v", sub.Status, sub.Err)
 	}
 }
 
@@ -352,15 +346,12 @@ func TestEngine_SubmitInput_NoMatchingTransition_StaysOnHumanStep(t *testing.T) 
 		t.Fatalf("CurrentStepID: want %q, got %q", "collect", got)
 	}
 
-	advanced, err := in.SubmitInput(map[string]any{"fullName": "Justin"})
-	if err != nil {
-		t.Fatalf("SubmitInput: %v", err)
+	sub := in.SubmitInput(map[string]any{"fullName": "Justin"})
+	if sub.Status != SubmitStayOnStep {
+		t.Fatalf("SubmitInput: want SubmitStayOnStep, got %v err=%v", sub.Status, sub.Err)
 	}
-	if advanced {
-		t.Fatalf("SubmitInput: expected advanced=false")
-	}
-	if got := in.CurrentStepID(); got != "collect" {
-		t.Fatalf("CurrentStepID after SubmitInput: want %q, got %q", "collect", got)
+	if got := sub.StepID; got != "collect" {
+		t.Fatalf("StepID after SubmitInput: want %q, got %q", "collect", got)
 	}
 }
 

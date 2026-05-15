@@ -1,21 +1,21 @@
 package engine
 
-// RunStatus describes why RunUntilBlocked stopped.
+// RunStatus is why RunUntilBlocked stopped.
 type RunStatus int
 
 const (
-	// RunBlocked means the instance is waiting on a human step.
+	// RunBlocked - waiting on a human step; call SubmitInput next.
 	RunBlocked RunStatus = iota + 1
 
-	// RunCompleted means the instance reached a declared terminal end step.
+	// RunCompleted - on a declared terminal end step.
 	RunCompleted
 
-	// RunFailed means execution failed.
+	// RunFailed - execution error; see RunResult.Err.
 	RunFailed
 )
 
-// RunResult is the outcome of Instance.RunUntilBlocked.
-// For RunBlocked and RunCompleted, Err is nil.
+// RunResult is returned by RunUntilBlocked.
+// Err is non-nil only when Status is RunFailed.
 type RunResult struct {
 	Status RunStatus
 	StepID string

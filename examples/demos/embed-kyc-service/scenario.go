@@ -74,14 +74,16 @@ func runDemo() error {
 
 	fmt.Println()
 	fmt.Println("submitting profile input...")
-	advanced, err := in.SubmitInput(map[string]any{"fullName": "Demo User"})
-	if err != nil {
-		return fmt.Errorf("submit input: %w", err)
+	sub := in.SubmitInput(map[string]any{"fullName": "Demo User"})
+	switch sub.Status {
+	case engine.SubmitAdvanced:
+		// ok
+	case engine.SubmitFailed:
+		return fmt.Errorf("submit input: %w", sub.Err)
+	default:
+		return fmt.Errorf("submit input: expected SubmitAdvanced from collect-profile, got %v", sub.Status)
 	}
-	if !advanced {
-		return fmt.Errorf("submit input: expected to advance from collect-profile")
-	}
-	fmt.Printf("continued to: %s\n", in.CurrentStepID())
+	fmt.Printf("continued to: %s\n", sub.StepID)
 
 	for {
 		res := in.RunUntilBlocked()

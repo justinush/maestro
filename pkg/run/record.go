@@ -1,12 +1,11 @@
 package run
 
 import (
-	"github.com/justinush/maestro/internal/definition"
+	"github.com/justinush/maestro/pkg/definition"
 	"github.com/justinush/maestro/pkg/engine"
 )
 
-// RunRecord is persisted by Store. Revision is for optimistic locking (CAS).
-// WorkflowID and WorkflowVersion should match definition.ID and definition.Version used to rebuild the instance.
+// RunRecord is what Store persists. Revision supports optimistic locking on Save.
 type RunRecord struct {
 	RunID           string          `json:"runId"`
 	WorkflowID      string          `json:"workflowId"`
@@ -15,8 +14,8 @@ type RunRecord struct {
 	State           engine.Snapshot `json:"state"`
 }
 
-// RecordFromInstance builds a RunRecord from a live instance and definition metadata.
-// revision should be the last known revision from Store.Get (use 0 when assembling a new record before Create).
+// RecordFromInstance builds a record from a live instance.
+// revision: use 0 before Create; use the revision from Get before Save.
 func RecordFromInstance(in *engine.Instance, def *definition.WorkflowDefinition, revision int64) *RunRecord {
 	if in == nil || def == nil {
 		return nil
@@ -31,9 +30,7 @@ func RecordFromInstance(in *engine.Instance, def *definition.WorkflowDefinition,
 	}
 }
 
-// InstanceFromRecord restores an engine instance from a stored record.
-// def must match the workflow used when the run was created (same id/version and graph).
-// If opts.RunID is empty, rec.RunID is applied.
+// InstanceFromRecord restores an instance. def must match the workflow used when the run started.
 func InstanceFromRecord(rec *RunRecord, def *definition.WorkflowDefinition, opts engine.Options) (*engine.Instance, error) {
 	if rec == nil {
 		return nil, engine.ErrNilDefinition
