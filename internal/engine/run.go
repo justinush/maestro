@@ -6,9 +6,13 @@ import (
 	"github.com/justinush/maestro/internal/definition"
 )
 
-// RunUntilBlocked drives execution forward until it reaches a stop condition.
-// It returns RunBlocked on a human step, RunCompleted on a terminal end step,
-// or RunFailed with Err set for any execution failure.
+// RunUntilBlocked advances execution until the engine must stop and yield to the host.
+//
+// RunBlocked: current step is human - call SubmitInput next.
+// RunCompleted: reached a declared terminal end step.
+// RunFailed: Err describes the failure; StepID and Events reflect progress up to the failure.
+//
+// Returned Events is a snapshot at return time (same ordering as Instance.Events()).
 func (in *Instance) RunUntilBlocked() RunResult {
 	if in == nil {
 		return RunResult{Status: RunFailed, Err: ErrNilDefinition}

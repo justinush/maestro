@@ -2,6 +2,7 @@ package engine
 
 import "github.com/justinush/maestro/internal/definition"
 
+// ActionContext is the input to ActionRunner.Run for one action invocation.
 type ActionContext struct {
 	RunID     string
 	StepID    string
@@ -11,7 +12,7 @@ type ActionContext struct {
 	Variables map[string]any
 }
 
-// ActionRunner executes a single workflow action.
+// ActionRunner executes a single workflow action (stub, http, or custom types).
 type ActionRunner interface {
 	Run(ctx ActionContext) error
 }

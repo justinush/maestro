@@ -8,21 +8,22 @@ import (
 	"github.com/justinush/maestro/pkg/validate"
 )
 
-// Runtime holds a validated workflow ready for NewInstance.
+// Runtime is a validated workflow definition ready to instantiate with Runtime.NewInstance.
 type Runtime struct {
 	def *definition.WorkflowDefinition
 }
 
-// Load reads and validates a workflow file (default validate options).
+// Load reads path, decodes it, and validates with default validate.Options.
 func Load(path string) (*Runtime, error) {
 	return loadFromPath(path, validate.Options{})
 }
 
-// LoadWithValidate is Load with custom validate.Options (custom schema path, verbose errors, etc.).
+// LoadWithValidate is like Load but uses custom validation options (schema path, verbose, etc.).
 func LoadWithValidate(path string, vopts validate.Options) (*Runtime, error) {
 	return loadFromPath(path, vopts)
 }
 
+// loadFromPath implements Load / LoadWithValidate.
 func loadFromPath(path string, vopts validate.Options) (*Runtime, error) {
 	def, err := definition.DecodeFile(path)
 	if err != nil {
@@ -34,7 +35,7 @@ func loadFromPath(path string, vopts validate.Options) (*Runtime, error) {
 	return &Runtime{def: def}, nil
 }
 
-// Compile validates an in-memory definition (embedded YAML, tests, codegen).
+// Compile validates an in-memory definition (embedded YAML, codegen, tests) without reading a file.
 func Compile(def *definition.WorkflowDefinition, vopts validate.Options) (*Runtime, error) {
 	if def == nil {
 		return nil, fmt.Errorf("maestro compile: nil definition")
@@ -45,7 +46,7 @@ func Compile(def *definition.WorkflowDefinition, vopts validate.Options) (*Runti
 	return &Runtime{def: def}, nil
 }
 
-// Definition returns the workflow. Do not mutate it.
+// Definition returns the validated workflow. Callers must not mutate it.
 func (rt *Runtime) Definition() *definition.WorkflowDefinition {
 	if rt == nil {
 		return nil
@@ -53,7 +54,8 @@ func (rt *Runtime) Definition() *definition.WorkflowDefinition {
 	return rt.def
 }
 
-// InstanceOptions is passed to NewInstance. Zero value is fine (default stub registry).
+// InstanceOptions configures Runtime.NewInstance (registry, trace, variables, run id).
+// Zero value uses DefaultRegistry (stub only).
 type InstanceOptions struct {
 	RunID            string
 	InitialVariables map[string]any
@@ -61,7 +63,7 @@ type InstanceOptions struct {
 	ActionRegistry   *engine.Registry
 }
 
-// NewInstance creates an engine instance for this workflow.
+// NewInstance builds an engine.Instance for this workflow.
 func (rt *Runtime) NewInstance(opts InstanceOptions) (*engine.Instance, error) {
 	if rt == nil || rt.def == nil {
 		return nil, engine.ErrNilDefinition

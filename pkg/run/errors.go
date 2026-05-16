@@ -2,6 +2,7 @@ package run
 
 import "errors"
 
+// Errors returned by Store. Persistence uses optimistic locking on RunRecord.Revision.
 var (
 	// ErrNotFound is returned when no run exists for the given id.
 	ErrNotFound = errors.New("run: not found")

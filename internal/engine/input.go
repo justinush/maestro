@@ -7,8 +7,14 @@ import (
 	"github.com/justinush/maestro/internal/definition"
 )
 
-// SubmitInput validates input against the human step schema, merges top-level keys into variables,
-// and optionally moves to the next step when a transition matches.
+// SubmitInput applies user input on the current human step.
+//
+// It validates against inputSchema (when present), merges top-level keys into variables,
+// evaluates outbound transitions, runs onExit actions when leaving, and moves currentStepID when a transition fires.
+//
+// SubmitStayOnStep means input was accepted but no transition matched (caller may prompt again or extend variables).
+// SubmitAdvanced means the instance advanced to StepID (now the next step).
+// SubmitFailed sets Err (schema failure wraps *InputValidationError when applicable).
 func (in *Instance) SubmitInput(input map[string]any) SubmitInputResult {
 	if in == nil {
 		return SubmitInputResult{Status: SubmitFailed, Err: ErrNilDefinition}

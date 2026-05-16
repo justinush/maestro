@@ -1,3 +1,25 @@
+// Package engine is the stable API for executing workflow definitions.
+//
+// Typical control flow: branch on RunResult.Status and SubmitInputResult.Status.
+// Err is set only when status is RunFailed or SubmitFailed.
+//
+//	NewInstance
+//	    |
+//	    v
+//	RunUntilBlocked
+//	    |
+//	    |-- RunCompleted -----------------------------> done
+//	    |-- RunFailed (inspect Err) ------------------> done
+//	    |-- RunBlocked
+//	            |
+//	            v
+//	         SubmitInput
+//	            |
+//	            |-- SubmitFailed (inspect Err) -------> done
+//	            |-- SubmitAdvanced or SubmitStayOnStep
+//	                    |
+//	                    v
+//	                 RunUntilBlocked (repeat)
 package engine
 
 import (
@@ -59,42 +81,47 @@ var (
 	ErrCELGuard             = iengine.ErrCELGuard
 )
 
-// NewInstance starts a run at the workflow initial step. def must be non-nil.
+// NewInstance starts execution at def.InitialStepID. def must be non-nil.
 func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
 	return iengine.NewInstance(def, opts)
 }
 
-// NewInstanceFromSnapshot restores state from a snapshot.
-// Use the same workflow definition (id, version, graph) as when the snapshot was taken.
+// NewInstanceFromSnapshot restores execution state from snap using the same workflow definition as before.
 func NewInstanceFromSnapshot(def *definition.WorkflowDefinition, snap Snapshot, opts Options) (*Instance, error) {
 	return iengine.NewInstanceFromSnapshot(def, snap, opts)
 }
 
+// NewRegistry creates an empty action registry.
 func NewRegistry() *Registry {
 	return iengine.NewRegistry()
 }
 
+// DefaultRegistry includes the built-in "stub" runner.
 func DefaultRegistry() *Registry {
 	return iengine.DefaultRegistry()
 }
 
+// RegistryWithHTTP returns DefaultRegistry plus "http".
 func RegistryWithHTTP(client *http.Client) *Registry {
 	return iengine.RegistryWithHTTP(client)
 }
 
+// SimulateHTTPClient is a conservative HTTP client for simulation (long timeout).
 func SimulateHTTPClient() *http.Client {
 	return iengine.SimulateHTTPClient()
 }
 
+// NewStubRunner returns the built-in stub ActionRunner (usually accessed via DefaultRegistry).
 func NewStubRunner() ActionRunner {
 	return iengine.NewStubRunner()
 }
 
+// NewHTTPRunner returns an ActionRunner for "http" actions.
 func NewHTTPRunner(client *http.Client) ActionRunner {
 	return iengine.NewHTTPRunner(client)
 }
 
-// AsInputValidationError reports whether err is an *InputValidationError from SubmitInput.
+// AsInputValidationError reports whether err unwraps to *InputValidationError (e.g. SubmitInputResult.Err).
 func AsInputValidationError(err error) (*InputValidationError, bool) {
 	if v, ok := errors.AsType[*InputValidationError](err); ok {
 		return v, true
@@ -102,7 +129,7 @@ func AsInputValidationError(err error) (*InputValidationError, bool) {
 	return nil, false
 }
 
-// AsUnknownStepError reports whether err is an *UnknownStepError.
+// AsUnknownStepError reports whether err unwrapes to *UnknownStepError.
 func AsUnknownStepError(err error) (*UnknownStepError, bool) {
 	if v, ok := errors.AsType[*UnknownStepError](err); ok {
 		return v, true

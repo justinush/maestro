@@ -6,14 +6,17 @@ import (
 	"github.com/justinush/maestro/internal/definition"
 )
 
+// runOnEnterActions runs st.OnEnter in order.
 func (in *Instance) runOnEnterActions(st *definition.Step) error {
 	return in.runActionList(st.ID, "onEnter", st.OnEnter)
 }
 
+// runOnExitActions runs st.OnExit in order.
 func (in *Instance) runOnExitActions(st *definition.Step) error {
 	return in.runActionList(st.ID, "onExit", st.OnExit)
 }
 
+// runActionList dispatches each action to the registry and records EventActionRan on success.
 func (in *Instance) runActionList(stepID, listName string, actions []definition.Action) error {
 	for i := range actions {
 		a := actions[i]

@@ -20,6 +20,7 @@ type inputSchemaCache struct {
 	byID map[string]cachedInputSchema
 }
 
+// getOrCompile parses and compiles step.InputSchema once per step id (nil schema accepts any input).
 func (c *inputSchemaCache) getOrCompile(step definition.Step) (*jsonschema.Schema, error) {
 	if c.byID == nil {
 		c.byID = make(map[string]cachedInputSchema)
@@ -56,6 +57,7 @@ func (c *inputSchemaCache) getOrCompile(step definition.Step) (*jsonschema.Schem
 	return sch, nil
 }
 
+// validateInputSchema checks input against the human step schema when present.
 func (in *Instance) validateInputSchema(step *definition.Step, input map[string]any) error {
 	if in == nil {
 		return ErrNilDefinition

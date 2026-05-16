@@ -11,8 +11,9 @@ import (
 	"github.com/justinush/maestro/internal/celenv"
 )
 
-// pickFirstFiringTransition returns the target step for the first matching transition
-// from fromID (sorted by priority ascending, stable on declaration order).
+// pickFirstFiringTransition evaluates outbound transitions from fromID in priority order
+// (ascending priority, stable tie-break by declaration index) and returns the first whose When guard passes.
+// ErrNoMatchingTransition means every guard evaluated to false (not an evaluation error).
 func (in *Instance) pickFirstFiringTransition(fromID string) (string, error) {
 	idxs := make([]int, 0)
 	for i := range in.def.Transitions {
@@ -68,6 +69,8 @@ func (in *Instance) pickFirstFiringTransition(fromID string) (string, error) {
 	return "", ErrNoMatchingTransition
 }
 
+// evalWhenForTransition evaluates transitions[ti].When against variables ("variables" activation).
+// Empty When means true. Errors from CEL evaluation wrap ErrCELGuard.
 func (in *Instance) evalWhenForTransition(ti int, variables map[string]any) (bool, error) {
 	if in == nil {
 		return false, ErrNilDefinition
@@ -98,6 +101,7 @@ func (in *Instance) evalWhenForTransition(ti int, variables map[string]any) (boo
 	return b, nil
 }
 
+// celProgramForTransition returns a compiled CEL program for transitions[ti].When, cached per transition index.
 func (in *Instance) celProgramForTransition(ti int) (cel.Program, error) {
 	if in.celPrograms != nil {
 		if prg, ok := in.celPrograms[ti]; ok {

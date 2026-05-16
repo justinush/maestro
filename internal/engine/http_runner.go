@@ -18,7 +18,7 @@ type httpRunner struct {
 	client *http.Client
 }
 
-// NewHTTPRunner returns an ActionRunner for workflow actions with type "http".
+// NewHTTPRunner builds an ActionRunner for workflow actions with type "http".
 func NewHTTPRunner(client *http.Client) ActionRunner {
 	if client == nil {
 		client = http.DefaultClient
@@ -26,6 +26,7 @@ func NewHTTPRunner(client *http.Client) ActionRunner {
 	return &httpRunner{client: client}
 }
 
+// Run performs the HTTP request described by params and writes a structured result to Variables[resultVariable].
 func (r *httpRunner) Run(ctx ActionContext) error {
 	if len(ctx.Action.Params) == 0 {
 		return fmt.Errorf("http action requires params")

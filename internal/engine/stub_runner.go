@@ -9,11 +9,12 @@ import (
 
 type stubRunner struct{}
 
-// NewStubRunner returns the built-in stub runner (params.set → variables).
+// NewStubRunner returns the built-in "stub" runner (params.set merges JSON values into variables).
 func NewStubRunner() ActionRunner {
 	return stubRunner{}
 }
 
+// Run applies stub params.set when params are non-empty.
 func (stubRunner) Run(ctx ActionContext) error {
 	if len(ctx.Action.Params) == 0 {
 		return nil

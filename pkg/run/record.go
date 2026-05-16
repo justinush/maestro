@@ -5,7 +5,7 @@ import (
 	"github.com/justinush/maestro/pkg/engine"
 )
 
-// RunRecord is what Store persists. Revision supports optimistic locking on Save.
+// RunRecord is the persistence shape for a workflow run (metadata + engine snapshot + revision).
 type RunRecord struct {
 	RunID           string          `json:"runId"`
 	WorkflowID      string          `json:"workflowId"`
@@ -14,8 +14,9 @@ type RunRecord struct {
 	State           engine.Snapshot `json:"state"`
 }
 
-// RecordFromInstance builds a record from a live instance.
-// revision: use 0 before Create; use the revision from Get before Save.
+// RecordFromInstance builds a RunRecord from a live instance.
+//
+// revision should be 0 before Create; before Save, use the revision returned by Get.
 func RecordFromInstance(in *engine.Instance, def *definition.WorkflowDefinition, revision int64) *RunRecord {
 	if in == nil || def == nil {
 		return nil
@@ -30,7 +31,7 @@ func RecordFromInstance(in *engine.Instance, def *definition.WorkflowDefinition,
 	}
 }
 
-// InstanceFromRecord restores an instance. def must match the workflow used when the run started.
+// InstanceFromRecord restores an Instance from storage using the same workflow definition as when the run started.
 func InstanceFromRecord(rec *RunRecord, def *definition.WorkflowDefinition, opts engine.Options) (*engine.Instance, error) {
 	if rec == nil {
 		return nil, engine.ErrNilDefinition

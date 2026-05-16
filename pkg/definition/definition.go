@@ -19,7 +19,7 @@ type (
 	WorkflowDefinition = idef.WorkflowDefinition
 )
 
-// DecodeFile reads a .json, .yaml, or .yml workflow file with strict parsing.
+// DecodeFile reads a workflow file (.json, .yaml, or .yml). JSON decoding is strict (unknown fields and trailing documents rejected).
 func DecodeFile(path string) (*WorkflowDefinition, error) {
 	return idef.DecodeFile(path)
 }

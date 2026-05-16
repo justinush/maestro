@@ -6,18 +6,20 @@ import (
 	"time"
 )
 
-// Registry maps action type strings (JSON/YAML "type") to runners.
-// Register all types before passing the registry to NewInstance.
+// Registry maps workflow action "type" strings to ActionRunner implementations.
+// Register everything needed by the workflow before passing the registry to NewInstance.
 type Registry struct {
 	runners map[string]ActionRunner
 }
 
+// NewRegistry returns an empty registry (no built-in types registered).
 func NewRegistry() *Registry {
 	return &Registry{
 		runners: make(map[string]ActionRunner),
 	}
 }
 
+// DefaultRegistry returns a registry with the built-in "stub" runner registered.
 func DefaultRegistry() *Registry {
 	r := NewRegistry()
 	if err := r.Register("stub", stubRunner{}); err != nil {
@@ -26,7 +28,7 @@ func DefaultRegistry() *Registry {
 	return r
 }
 
-// RegistryWithHTTP returns DefaultRegistry plus the "http" action type.
+// RegistryWithHTTP returns DefaultRegistry plus an "http" runner using client.
 func RegistryWithHTTP(client *http.Client) *Registry {
 	r := DefaultRegistry()
 	if err := r.Register("http", NewHTTPRunner(client)); err != nil {
@@ -35,12 +37,12 @@ func RegistryWithHTTP(client *http.Client) *Registry {
 	return r
 }
 
-// SimulateHTTPClient is a conservative default for simulate.
+// SimulateHTTPClient returns a conservative HTTP client for CLI/simulation (60s timeout).
 func SimulateHTTPClient() *http.Client {
 	return &http.Client{Timeout: 60 * time.Second}
 }
 
-// Register installs a runner for actionType. Duplicate types are rejected.
+// Register binds actionType to runner. Duplicate types return an error.
 func (r *Registry) Register(actionType string, runner ActionRunner) error {
 	if r == nil {
 		return fmt.Errorf("engine: nil registry")
@@ -61,12 +63,14 @@ func (r *Registry) Register(actionType string, runner ActionRunner) error {
 	return nil
 }
 
+// MustRegister calls Register and panics if Register returns an error.
 func (r *Registry) MustRegister(actionType string, runner ActionRunner) {
 	if err := r.Register(actionType, runner); err != nil {
 		panic(err)
 	}
 }
 
+// Lookup returns the runner for actionType and whether it exists.
 func (r *Registry) Lookup(actionType string) (ActionRunner, bool) {
 	if r == nil || r.runners == nil {
 		return nil, false

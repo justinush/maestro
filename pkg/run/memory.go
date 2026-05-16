@@ -7,16 +7,18 @@ import (
 	"sync"
 )
 
-// MemoryStore is a process-local Store for tests and demos (data lost on exit).
+// MemoryStore is an in-process Store (good for tests and demos; not durable).
 type MemoryStore struct {
 	mu   sync.Mutex
 	data map[string]*RunRecord
 }
 
+// NewMemoryStore creates an empty memory-backed store.
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{data: make(map[string]*RunRecord)}
 }
 
+// Create inserts rec when RunID is unused; stored revision becomes 1.
 func (m *MemoryStore) Create(ctx context.Context, rec *RunRecord) error {
 	_ = ctx
 	if rec == nil || rec.RunID == "" {
@@ -36,6 +38,7 @@ func (m *MemoryStore) Create(ctx context.Context, rec *RunRecord) error {
 	return nil
 }
 
+// Get returns a deep copy of the run or ErrNotFound.
 func (m *MemoryStore) Get(ctx context.Context, runID string) (*RunRecord, error) {
 	_ = ctx
 	if runID == "" {
@@ -50,6 +53,7 @@ func (m *MemoryStore) Get(ctx context.Context, runID string) (*RunRecord, error)
 	return cloneRecord(cur)
 }
 
+// Save replaces the stored run when rec.Revision matches the stored revision (then increments revision).
 func (m *MemoryStore) Save(ctx context.Context, rec *RunRecord) error {
 	_ = ctx
 	if rec == nil || rec.RunID == "" {

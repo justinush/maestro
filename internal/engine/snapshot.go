@@ -7,8 +7,8 @@ import (
 	"github.com/justinush/maestro/internal/definition"
 )
 
-// Snapshot is JSON-friendly state for persistence (step, variables, trace).
-// CEL programs and input-schema cache are rebuilt on restore, not stored.
+// Snapshot is JSON-friendly runtime state: correlation id, step position, variables, and trace.
+// It does not store compiled CEL programs or compiled input schemas; those are rebuilt after restore.
 type Snapshot struct {
 	RunID         string         `json:"runId"`
 	TraceGuards   bool           `json:"traceGuards"`
@@ -19,7 +19,8 @@ type Snapshot struct {
 	NextSeq       int            `json:"nextSeq"`
 }
 
-// Snapshot copies variables and events for persistence. Nested map values may still be shared.
+// Snapshot builds a Snapshot value from the current instance.
+// Variables and Events are shallow-copied (top-level maps/slices only); nested values may still alias live state.
 func (in *Instance) Snapshot() Snapshot {
 	if in == nil {
 		return Snapshot{}
@@ -35,10 +36,12 @@ func (in *Instance) Snapshot() Snapshot {
 	}
 }
 
-// NewInstanceFromSnapshot rebuilds an instance from a snapshot and the same workflow definition.
-// opts.ActionRegistry (or default) must match what you used when the run was created.
-// RunID: opts.RunID if non-empty, otherwise snap.RunID.
-// TraceGuards: true if opts.TraceGuards or snap.TraceGuards is true.
+// NewInstanceFromSnapshot restores an Instance from Snapshot plus the workflow used when the run began.
+// def must describe the same graph as at snapshot time (same ids and compatible steps/transitions).
+//
+// Registry: pass the same ActionRegistry semantics as then the run was created (or rely on defaults consistently).
+// RunID uses opts.RunID when non-empty, otherwise snap.RunID.
+// TraceGuards is true if either opts.TraceGuards or snap.TraceGuards is true.
 func NewInstanceFromSnapshot(def *definition.WorkflowDefinition, snap Snapshot, opts Options) (*Instance, error) {
 	if snap.CurrentStepID == "" {
 		return nil, errors.New("engine: snapshot currentStepId is empty")

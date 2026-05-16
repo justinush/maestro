@@ -9,6 +9,7 @@ import (
 	"github.com/justinush/maestro/internal/workflowgraph"
 )
 
+// Options configures a new workflow instance (identity, initial variables, tracing, action runners).
 type Options struct {
 	RunID string
 
@@ -41,8 +42,8 @@ type Instance struct {
 	nextSeq int
 }
 
-// newInstanceShell validates def, builds step/terminal maps, and attaches registry.
-// It does not set currentStepID, variables, onEnterRan, events, or nextSeq.
+// newInstanceShell validates def, indexes steps and terminals, and wires the action registry.
+// It returns an Instance without an initial step position or variables; callers must set those.
 func newInstanceShell(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
 	if def == nil {
 		return nil, ErrNilDefinition
@@ -96,8 +97,8 @@ func newInstanceShell(def *definition.WorkflowDefinition, opts Options) (*Instan
 	}, nil
 }
 
-// NewInstance creates an instance at initialStepId with a copy of opts.InitialVariables.
-// It checks step ids, initial step presence, and terminal rules via workflowgraph.BuildTerminalSet.
+// NewInstance creates an Instance positioned at def.InitialStepID with a shallow copy of opts.InitialVariables.
+// It validates step ids, initial step presence, and terminal rules (via workflowgraph.BuildTerminalSet).
 func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
 	in, err := newInstanceShell(def, opts)
 	if err != nil {
@@ -115,8 +116,8 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 	return in, nil
 }
 
-// Definition returns the workflow for this instance, or nil when the receiver is nil.
-// Do not mutate the returned value.
+// Definition returns the workflow bound to this instance, or nil if in is nil.
+// Callers must not mutate the returned pointer or its contents.
 func (in *Instance) Definition() *definition.WorkflowDefinition {
 	if in == nil {
 		return nil
@@ -124,7 +125,7 @@ func (in *Instance) Definition() *definition.WorkflowDefinition {
 	return in.def
 }
 
-// RunID returns the correlation id from Options, or empty if unset.
+// RunID returns Options.RunID (may be empty).
 func (in *Instance) RunID() string {
 	if in == nil {
 		return ""
@@ -132,7 +133,7 @@ func (in *Instance) RunID() string {
 	return in.runID
 }
 
-// CurrentStepID returns the step the instance is positioned on.
+// CurrentStepID returns the step the engine is currently on.
 func (in *Instance) CurrentStepID() string {
 	if in == nil {
 		return ""
@@ -140,7 +141,7 @@ func (in *Instance) CurrentStepID() string {
 	return in.currentStepID
 }
 
-// Step loads the current step definition, or an error if the id is unknown.
+// Step returns the definition for the current step.
 func (in *Instance) Step() (*definition.Step, error) {
 	if in == nil {
 		return nil, ErrNilDefinition
@@ -148,7 +149,8 @@ func (in *Instance) Step() (*definition.Step, error) {
 	return in.StepByID(in.currentStepID)
 }
 
-// StepByID loads a step by id; returns UnknownStepError when id is missing.
+// StepByID returns the step definition for id.
+// If id is not in the workflow, the error satisfies errors.As(..., *UnknownStepError).
 func (in *Instance) StepByID(id string) (*definition.Step, error) {
 	if in == nil {
 		return nil, ErrNilDefinition
@@ -169,7 +171,7 @@ func (in *Instance) Variables() map[string]any {
 	return shallowCopyMap(in.variables)
 }
 
-// IsTerminal reports whether the current step is listed as terminal and has kind end.
+// IsTerminal reports whether the current step is both kind "end" and listed in terminalStepIds.
 func (in *Instance) IsTerminal() bool {
 	if in == nil {
 		return false
@@ -184,7 +186,7 @@ func (in *Instance) IsTerminal() bool {
 	return s.Kind == definition.StepKindEnd
 }
 
-// stepKindsFromSteps builds id→kind for terminal validation.
+// stepKindsFromSteps builds id->kind for terminal validation.
 func stepKindsFromSteps(stepsByID map[string]definition.Step) map[string]definition.StepKind {
 	m := make(map[string]definition.StepKind, len(stepsByID))
 	for id, s := range stepsByID {
@@ -202,7 +204,7 @@ func shallowCopyMap(m map[string]any) map[string]any {
 	return out
 }
 
-// Events returns a snapshot of the execution trace so far.
+// Events returns a copy of recorded trace events (safe to read without racing the instance).
 func (in *Instance) Events() []Event {
 	if in == nil {
 		return nil
@@ -210,6 +212,7 @@ func (in *Instance) Events() []Event {
 	return append([]Event(nil), in.events...)
 }
 
+// record appends an event and assigns monotonic Seq and RunID.
 func (in *Instance) record(ev Event) {
 	in.nextSeq++
 	ev.Seq = in.nextSeq

@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// EventType identifies the kind of trace Event.
 type EventType string
 
 const (
@@ -18,6 +19,7 @@ const (
 	EventCompleted       EventType = "run.completed"
 )
 
+// Event is one row in the execution trace (JSON-serializable).
 type Event struct {
 	Seq   int       `json:"seq"`
 	RunID string    `json:"runId,omitempty"`
@@ -43,6 +45,7 @@ type Event struct {
 	GuardError  string `json:"guardError,omitempty"`
 }
 
+// String returns a short human-readable log line for demos and CLI output.
 func (e Event) String() string {
 	switch e.Type {
 	case EventStepEntered:

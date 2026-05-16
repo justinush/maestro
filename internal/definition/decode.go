@@ -12,7 +12,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DecodeFile reads a .json, .yaml, or .yml workflow file and returns a parsed definition.
+// DecodeFile reads a workflow definition from disk based on file extension.
+//
+// JSON: DisallowUnknownFields and reject trailing JSON after the document.
+// YAML: KnownFields(true) on the root mapping (unknown keys error).
 func DecodeFile(path string) (*WorkflowDefinition, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {

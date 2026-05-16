@@ -28,7 +28,7 @@ var (
 )
 
 // BuildTerminalSet checks terminalStepIDs against step kinds and returns the terminal id set.
-// stepKinds must include every step in the workflow (id→kind).
+// stepKinds must include every step in the workflow (id->kind).
 func BuildTerminalSet(terminalStepIDs []string, stepKinds map[string]definition.StepKind) (map[string]struct{}, error) {
 	if len(terminalStepIDs) == 0 {
 		return nil, ErrNoTerminalSteps
