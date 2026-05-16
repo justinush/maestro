@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 )
 
-// newVendorMock returns a server whose paths respond like a small vendor API.
-// Use srv.Client() with Maestro's HTTP runner so requests hit this server.
+// newVendorMock returns a server that mimics a small vendor liveness API (offline, in-process).
+// Use srv.Client() with RegistryWithHTTP so requests hit this server, not the public internet.
 func newVendorMock() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

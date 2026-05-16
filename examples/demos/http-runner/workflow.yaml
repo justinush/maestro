@@ -2,18 +2,19 @@ schemaVersion: "0.1"
 id: http-runner-demo
 version: "1.0.0"
 title: HTTP runner demo
-description: Single HTTP probe then terminal.
+description: Call a liveness vendor API (Onfido/Sumsub-style), then approve when HTTP 200.
 
-initialStepId: call-vendor
+initialStepId: call-liveness-vendor
 terminalStepIds:
   - approved
 
 steps:
-  - id: call-vendor
+  - id: call-liveness-vendor
     kind: action
+    description: GET vendor liveness status; result stored in variables.vendor
     onEnter:
       - type: http
-        id: vendor-liveness
+        id: poll-liveness
         params:
           method: GET
           url: "__HTTP_BASE__/v1/liveness/status"
@@ -24,7 +25,7 @@ steps:
     kind: end
 
 transitions:
-  - from: call-vendor
+  - from: call-liveness-vendor
     to: approved
     priority: 0
     when: "variables.vendor.statusCode == 200"

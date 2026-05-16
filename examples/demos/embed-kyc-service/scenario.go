@@ -45,7 +45,7 @@ func runDemo() error {
 		return err
 	}
 
-	// 5. Second request: reload from store (rt.RestoreInstance inside restoreRun).
+	// 5. Second request: reload from the store, like a later API handler would.
 	in, err = restoreRun(ctx, rt, store, demoRunID)
 	if err != nil {
 		return err
