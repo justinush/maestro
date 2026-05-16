@@ -1,18 +1,34 @@
 # embed-kyc-service
 
-A **credible backend slice** in one `go run`: human step → **persist** while blocked → **reload** from `pkg/run` as if a new request arrived → **`SubmitInput`** → run a **stub** “liveness” action → reach a terminal step → **save** again → print the **event trace**.
+Minimal embedded KYC workflow lifecycle with persistence + restore.
 
-There is no HTTP server here. The point is the **library contract**: your app owns transport and storage; Maestro owns the graph, variables, and trace.
+<p align="center">
+  <img src="./.docs/assets/embed-kyc-service.excalidraw.png" alt="library-basic flow" width="360">
+</p>
 
-## Why it exists
+This demo simulates two backend requests sharing the same persisted workflow run.
 
-**`library-basic`** shows **`pkg/maestro`**, **`RunUntilBlocked()`**, and a **`RunResult`** with **`RunBlocked`** on the first human step. This demo answers the next questions people actually ask:
+```txt
+request 1 -> start workflow -> blocked -> persist
+request 2 -> restore workflow -> submit input -> continue -> approved
+```
 
-- Where does **`SubmitInput`** go after a human step?
-- How do I **snapshot** an instance and **restore** it later?
-- What does **`MemoryStore`** (optimistic **`revision`**) feel like in practice?
+The workflow pauses on a human step, saves its state, then resumes later after new input arrives.
 
-The workflow is embedded (`//go:embed workflow.yaml`) so the example is **self-contained** and still looks like something you would ship next to your service binary.
+---
+
+## What this demo shows
+
+- embedded workflow execution inside a backend service
+- blocking on a human step
+- persisting workflow snapshots
+- restoring workflow state in a later request
+- continuing execution with `SubmitInput`
+- workflow trace inspection
+
+This is the recommended starting point for building real onboarding or approval flows on top of Maestro.
+
+---
 
 ## Run
 
@@ -22,23 +38,59 @@ From the repository root:
 go run ./examples/demos/embed-kyc-service
 ```
 
-Output is **deterministic** for a fixed workflow: run id **`run_demo`**, scripted profile name, same graph every time. You should see **blocked at: collect-profile**, a **submitting profile input** stanza, **continued to: run-checks**, **completed at: approved**, then a **trace** block (`step.entered`, `run.blocked`, `input.accepted`, `action.ran`, `transition.taken`, `run.completed`, …).
+---
 
-**Driving the engine:** each **`RunUntilBlocked()`** returns a **`RunResult`**. After **`SubmitInput`**, **`scenario.go`** loops **`RunUntilBlocked()`** until **`RunCompleted`** (or treats **`RunFailed`** / unexpected **`RunBlocked`** as errors).
+## Expected output
 
-## Takeaways for your app
+```txt
+created run: run_demo
+blocked at: collect-profile
 
-This is a **narrow, scripted story** so you can see persistence and restore in one file—not a full product. Your API shape, tenancy, and database schema will differ. Patterns that usually **remain useful** when you rewrite it for real:
+restored run from store
 
-- **`run.NewMemoryStore`** is for tests and learning; in production implement **`run.Store`** (Postgres, Redis, your own table).
-- Always reload with the **same** workflow definition metadata the run was created with (`id` / `version` and compatible graph).
-- Serialize access per **`runID`** unless you know your store and engine usage are safe under concurrency.
-- Prefer **`RunResult.Status`** over treating normal pauses as **`error`** values; use **`res.Err`** when **`RunFailed`**.
+submitting profile input...
+continued to: run-checks
+completed at: approved
+saved final run state
+
+trace:
+...
+```
+
+Trace lines may differ slightly as the engine evolves.
+
+---
 
 ## Files
 
-| File | Role |
-|------|------|
-| `main.go` | Thin entrypoint. |
-| `scenario.go` | The scripted “two requests” story + helpers. |
-| `workflow.yaml` | Small KYC-shaped graph: profile → checks stub → **approved**. |
+| File | Purpose |
+|---|---|
+| `main.go` | entrypoint |
+| `scenario.go` | workflow lifecycle scenario |
+| `persist.go` | persistence + restore helpers |
+| `workflow.go` | embedded workflow loader |
+| `workflow.yaml` | sample KYC workflow definition |
+
+---
+
+## Real-world mapping
+
+This demo roughly maps to:
+
+| Backend request | Responsibility |
+|---|---|
+| Request 1 | start onboarding workflow |
+| Request 2 | receive user profile form |
+| Workflow store | persist workflow snapshots between requests |
+
+In production, `run.Store` would typically be backed by a database instead of `MemoryStore`.
+
+---
+
+## Next demo
+
+Continue with [`http-runner`](../http-runner) to see:
+
+- external HTTP integrations
+- vendor/API orchestration
+- workflow guards based on HTTP responses
