@@ -1,12 +1,38 @@
 # http-runner
 
-Shows Maestro calling **real HTTP** from a workflow: **`RegistryWithHTTP`**, an **`http`** action with **`resultVariable`**, and a **CEL `when`** guard that reads **`variables.vendor.statusCode`**.
+Minimal example of calling external services from a Maestro workflow.
 
-A tiny **`httptest.Server`** stands in for a vendor so the demo stays **offline** and **one command**.
+<p align="center">
+  <img src="./.docs/assets/http-runner.excalidraw.png" alt="library-basic flow" width="960">
+</p>
 
-## Why it exists
+This demo shows a workflow action step calling a mock vendor API through Maestro's HTTP runner.
 
-Stub actions are easy to read but they do not prove integrations. This folder is the bridge between “orchestration in YAML” and “my step hits an actual URL and branches on the response.”
+```txt
+workflow action -> HTTP runner -> vendor API -> guard evaluation -> approved
+```
+
+The workflow stores the HTTP response in workflow variables, then evaluates a guard to decide the next step.
+
+---
+
+## What this demo shows
+
+- HTTP-based workflow actions
+- external service orchestration
+- storing HTTP responses in workflow variables
+- guard evaluation from vendor responses
+- workflow-driven decision making
+
+This is the foundation for integrating:
+
+- KYC vendors
+- AML services
+- fraud/risk systems
+- internal verification APIs
+- compliance backoffice services
+
+---
 
 ## Run
 
@@ -16,25 +42,57 @@ From the repository root:
 go run ./examples/demos/http-runner
 ```
 
-`workflow.yaml` embeds a placeholder URL, **`__HTTP_BASE__`**. `main.go` substitutes the mock server’s URL before parse so we never hard-code a host in the workflow file.
+---
 
-**Execution:** **`RunUntilBlocked()`** returns a **`RunResult`**. The demo expects **`RunCompleted`** with **`res.StepID == "approved"`**; failures use **`RunFailed`** and **`res.Err`**.
+## Expected output
 
-You should see a **vendor snapshot** (status, headers, body), a short **trace** ending in **`run.completed`**, and a closing **`ok:`** line.
+```txt
+mock vendor started
 
-## Takeaways for your app
+loaded workflow "http-runner-demo" (version "1.0.0")
 
-The mock server and **`%#v`** logging exist to keep the demo small. Your vendor URLs, auth, retries, and observability will not look like this file-for-file. Habits that **often carry over** when you build your version:
+running workflow with HTTP runner...
 
-- Use **`httptest`** in unit tests; use a configured **`http.Client`** (timeouts, TLS, tracing) in production.
-- **`srv.Client()`** is required with **`httptest`** so requests route to the test server correctly.
-- Prefer **`json.MarshalIndent`** (or your own struct) over **`%#v`** when you log **`variables["vendor"]`**—`%#v` is fine for this demo but noisy in real logs.
-- Use **`RunResult`** from **`RunUntilBlocked()`** to distinguish **done** vs **blocked** vs **failed** without sentinel **`error`** checks.
+completed at: approved
+
+vendor HTTP status: 200
+vendor liveness status: pass
+
+trace:
+...
+```
+
+Output may differ slightly as the engine evolves.
+
+---
 
 ## Files
 
-| File | Role |
-|------|------|
-| `main.go` | Wire mock, parse workflow, run engine, print trace. |
-| `mock_vendor_server.go` | Returns **200** + JSON on **`/v1/liveness/status`**. |
-| `workflow.yaml` | One action step, one terminal, guard on **`statusCode == 200`**. |
+| File | Purpose |
+|---|---|
+| `main.go` | workflow execution scenario |
+| `workflow.go` | embedded workflow loader |
+| `workflow.yaml` | sample HTTP-based workflow |
+| `mock_vendor_server.go` | local mock vendor API |
+
+---
+
+## Real-world mapping
+
+This demo roughly maps to:
+
+| Workflow step | Real-world equivalent |
+|---|---|
+| HTTP runner | call vendor/internal service |
+| Mock vendor API | Onfido / Sumsub / AML API |
+| `variables.vendor` | captured vendor response |
+| Guard evaluation | workflow routing decision |
+
+In production, the HTTP runner would typically call real vendor or internal APIs instead of the local `httptest.Server`.
+
+---
+
+## Related demos
+
+- [`library-basic`](../library-basic) — smallest embedding example
+- [`embed-kyc-service`](../embed-kyc-service) — persistence + restore lifecycle
