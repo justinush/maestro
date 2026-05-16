@@ -21,10 +21,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-
-	// Optional: inspect workflow metadata for logging or diagnostics.
-	def := rt.Definition()
-	if def != nil {
+	if def := rt.Definition(); def != nil {
 		fmt.Printf("loaded workflow %q (version %q)\n", def.ID, def.Version)
 	}
 

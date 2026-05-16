@@ -5,6 +5,7 @@ import (
 
 	"github.com/justinush/maestro/pkg/definition"
 	"github.com/justinush/maestro/pkg/engine"
+	"github.com/justinush/maestro/pkg/run"
 	"github.com/justinush/maestro/pkg/validate"
 )
 
@@ -23,25 +24,53 @@ func LoadWithValidate(path string, vopts validate.Options) (*Runtime, error) {
 	return loadFromPath(path, vopts)
 }
 
-// loadFromPath implements Load / LoadWithValidate.
 func loadFromPath(path string, vopts validate.Options) (*Runtime, error) {
 	def, err := definition.DecodeFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("maestro load: decode: %w", err)
 	}
-	if err := validate.WorkflowDefinition(def, vopts); err != nil {
-		return nil, fmt.Errorf("maestro load: validate: %w", err)
-	}
-	return &Runtime{def: def}, nil
+	return compileDefinition(def, vopts)
 }
 
-// Compile validates an in-memory definition (embedded YAML, codegen, tests) without reading a file.
+// LoadYAML decodes and validates workflow YAML bytes (for //go:embed, config services, tests).
+func LoadYAML(data []byte) (*Runtime, error) {
+	return LoadYAMLWithValidate(data, validate.Options{})
+}
+
+// LoadYAMLWithValidate is LoadYAML with custom validate.Options.
+func LoadYAMLWithValidate(data []byte, vopts validate.Options) (*Runtime, error) {
+	def, err := definition.DecodeYAML(data)
+	if err != nil {
+		return nil, fmt.Errorf("maestro load yaml: decode: %w", err)
+	}
+	return compileDefinition(def, vopts)
+}
+
+// LoadJSON decodes and validates workflow JSON bytes.
+func LoadJSON(data []byte) (*Runtime, error) {
+	return LoadJSONWithValidate(data, validate.Options{})
+}
+
+// LoadJSONWithValidate is LoadJSON with custom validate.Options.
+func LoadJSONWithValidate(data []byte, vopts validate.Options) (*Runtime, error) {
+	def, err := definition.DecodeJSON(data)
+	if err != nil {
+		return nil, fmt.Errorf("maestro load json: decode: %w", err)
+	}
+	return compileDefinition(def, vopts)
+}
+
+// Compile validates an in-memory definition (codegen, tests) without reading bytes from disk.
 func Compile(def *definition.WorkflowDefinition, vopts validate.Options) (*Runtime, error) {
 	if def == nil {
 		return nil, fmt.Errorf("maestro compile: nil definition")
 	}
+	return compileDefinition(def, vopts)
+}
+
+func compileDefinition(def *definition.WorkflowDefinition, vopts validate.Options) (*Runtime, error) {
 	if err := validate.WorkflowDefinition(def, vopts); err != nil {
-		return nil, fmt.Errorf("maestro compile: validate: %w", err)
+		return nil, fmt.Errorf("maestro: validate: %w", err)
 	}
 	return &Runtime{def: def}, nil
 }
@@ -63,19 +92,33 @@ type InstanceOptions struct {
 	ActionRegistry   *engine.Registry
 }
 
-// NewInstance builds an engine.Instance for this workflow.
+// NewInstance builds an engine.Instance for this workflow at initialStepId.
 func (rt *Runtime) NewInstance(opts InstanceOptions) (*engine.Instance, error) {
 	if rt == nil || rt.def == nil {
 		return nil, engine.ErrNilDefinition
 	}
+	return engine.NewInstance(rt.def, instanceOptionsToEngine(opts))
+}
+
+// RestoreInstance rebuilds an engine.Instance from a stored RunRecord for this workflow.
+// Use the same ActionRegistry and TraceGuards semantics as when the run was created.
+// RunID is taken from opts when set, otherwise from rec.RunID.
+func (rt *Runtime) RestoreInstance(rec *run.RunRecord, opts InstanceOptions) (*engine.Instance, error) {
+	if rt == nil || rt.def == nil {
+		return nil, engine.ErrNilDefinition
+	}
+	return run.InstanceFromRecord(rec, rt.def, instanceOptionsToEngine(opts))
+}
+
+func instanceOptionsToEngine(opts InstanceOptions) engine.Options {
 	reg := opts.ActionRegistry
 	if reg == nil {
 		reg = engine.DefaultRegistry()
 	}
-	return engine.NewInstance(rt.def, engine.Options{
+	return engine.Options{
 		RunID:            opts.RunID,
 		InitialVariables: opts.InitialVariables,
 		TraceGuards:      opts.TraceGuards,
 		ActionRegistry:   reg,
-	})
+	}
 }

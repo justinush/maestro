@@ -25,31 +25,39 @@ func DecodeFile(path string) (*WorkflowDefinition, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".json":
-		dec := json.NewDecoder(bytes.NewReader(b))
-		dec.DisallowUnknownFields()
-		var def WorkflowDefinition
-		if err := dec.Decode(&def); err != nil {
-			return nil, fmt.Errorf("parse json: %w", err)
-		}
-		var tail json.RawMessage
-		if err := dec.Decode(&tail); err != nil {
-			if err != io.EOF {
-				return nil, fmt.Errorf("parse json: %w", err)
-			}
-			return &def, nil
-		}
-		return nil, fmt.Errorf("parse json: trailing content after workflow document")
-
+		return DecodeJSON(b)
 	case ".yaml", ".yml":
-		dec := yaml.NewDecoder(bytes.NewReader(b))
-		dec.KnownFields(true)
-		var def WorkflowDefinition
-		if err := dec.Decode(&def); err != nil {
-			return nil, fmt.Errorf("parse yaml: %w", err)
-		}
-		return &def, nil
-
+		return DecodeYAML(b)
 	default:
 		return nil, fmt.Errorf("unsupported file extension: %q (use .yaml, .yml, or .json)", ext)
 	}
+}
+
+// DecodeYAML parses a single workflow document from YAML bytes (strict: unknown fields rejected).
+func DecodeYAML(data []byte) (*WorkflowDefinition, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	var def WorkflowDefinition
+	if err := dec.Decode(&def); err != nil {
+		return nil, fmt.Errorf("parse yaml: %w", err)
+	}
+	return &def, nil
+}
+
+// DecodeJSON parses a single workflow document from JSON bytes (strict: unknown fields and trailing content rejected).
+func DecodeJSON(data []byte) (*WorkflowDefinition, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	var def WorkflowDefinition
+	if err := dec.Decode(&def); err != nil {
+		return nil, fmt.Errorf("parse json: %w", err)
+	}
+	var tail json.RawMessage
+	if err := dec.Decode(&tail); err != nil {
+		if err != io.EOF {
+			return nil, fmt.Errorf("parse json: %w", err)
+		}
+		return &def, nil
+	}
+	return nil, fmt.Errorf("parse json: trailing content after workflow document")
 }
