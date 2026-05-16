@@ -2,7 +2,7 @@ schemaVersion: "0.1"
 id: embed-kyc-demo
 version: "1.0.0"
 title: Embed KYC demo
-description: Human profile -> stubbed liveness check -> approved.
+description: Collect profile, run liveness check (stub), approve when liveness passes.
 
 initialStepId: collect-profile
 terminalStepIds:
@@ -25,24 +25,26 @@ steps:
           set:
             stage: "profile"
 
-  - id: run-checks
+  - id: run-liveness-check
     kind: action
+    description: Stub stands in for vendor liveness (see http-runner for real HTTP).
     onEnter:
       - type: stub
-        id: liveness-check
+        id: record-liveness-pass
         params:
           set:
-            livenessCompleted: true
+            liveness:
+              passed: true
 
   - id: approved
     kind: end
 
 transitions:
   - from: collect-profile
-    to: run-checks
+    to: run-liveness-check
     priority: 0
 
-  - from: run-checks
+  - from: run-liveness-check
     to: approved
     priority: 0
-    when: "variables.livenessCompleted == true"
+    when: "variables.liveness.passed == true"
