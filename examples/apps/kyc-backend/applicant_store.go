@@ -50,11 +50,9 @@ func (s *ApplicantStore) GetByRunID(runID string) (*ApplicantRecord, error) {
 	defer s.mu.Unlock()
 	rec, ok := s.byRunID[runID]
 	if !ok {
-		return nil, fmt.Errorf("applicant: run %q not found", runID)
+		return nil, fmt.Errorf("%w: run %q", ErrApplicantNotFound, runID)
 	}
-	cp := *rec
-	cp.Documents = append([]Document(nil), rec.Documents...)
-	return &cp, nil
+	return cloneApplicant(rec), nil
 }
 
 func (s *ApplicantStore) SaveProfile(runID string, p Profile) error {
@@ -62,7 +60,7 @@ func (s *ApplicantStore) SaveProfile(runID string, p Profile) error {
 	defer s.mu.Unlock()
 	rec, ok := s.byRunID[runID]
 	if !ok {
-		return fmt.Errorf("applicant: run %q not found", runID)
+		return fmt.Errorf("%w: run %q", ErrApplicantNotFound, runID)
 	}
 	rec.Profile = p
 	return nil
@@ -73,8 +71,14 @@ func (s *ApplicantStore) AddDocument(runID string, d Document) error {
 	defer s.mu.Unlock()
 	rec, ok := s.byRunID[runID]
 	if !ok {
-		return fmt.Errorf("applicant: run %q not found", runID)
+		return fmt.Errorf("%w: run %q", ErrApplicantNotFound, runID)
 	}
 	rec.Documents = append(rec.Documents, d)
 	return nil
+}
+
+func cloneApplicant(rec *ApplicantRecord) *ApplicantRecord {
+	cp := *rec
+	cp.Documents = append([]Document(nil), rec.Documents...)
+	return &cp
 }

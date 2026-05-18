@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
-	"strings"
 
 	"github.com/justinush/maestro/pkg/run"
 )
@@ -17,6 +18,7 @@ func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /kyc/start", s.handleStart)
 	mux.HandleFunc("GET /kyc/{runID}", s.handleGet)
+	mux.HandleFunc("GET /kyc/{runID}/events", s.handleEvents)
 	mux.HandleFunc("POST /kyc/{runID}/profile", s.handleProfile)
 	mux.HandleFunc("POST /kyc/{runID}/document", s.handleDocument)
 	mux.HandleFunc("POST /kyc/{runID}/review", s.handleReview)
@@ -42,11 +44,21 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("runID")
+	resp, err := s.svc.GetEvents(r.Context(), runID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("runID")
 	var body Profile
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if err := decodeJSON(r, &body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	resp, err := s.svc.SubmitProfile(r.Context(), runID, body)
@@ -60,8 +72,8 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDocument(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("runID")
 	var body Document
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if err := decodeJSON(r, &body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	resp, err := s.svc.SubmitDocument(r.Context(), runID, body)
@@ -77,8 +89,8 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Approved bool `json:"approved"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+	if err := decodeJSON(r, &body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if !body.Approved {
@@ -91,6 +103,18 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func decodeJSON(r *http.Request, dst any) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return fmt.Errorf("invalid json: %w", err)
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("invalid json: trailing data")
+	}
+	return nil
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -110,16 +134,11 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, run.ErrNotFound):
 		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, ErrApplicantNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, ErrWrongStep):
+		http.Error(w, err.Error(), http.StatusConflict)
 	default:
-		msg := err.Error()
-		if strings.Contains(msg, "wrong step:") {
-			http.Error(w, msg, http.StatusConflict)
-			return
-		}
-		if strings.Contains(msg, "applicant:") {
-			http.Error(w, msg, http.StatusNotFound)
-			return
-		}
-		http.Error(w, msg, http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

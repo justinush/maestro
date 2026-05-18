@@ -14,6 +14,11 @@ type StatusResponse struct {
 	Documents   []Document `json:"documents,omitempty"`
 }
 
+type EventsResponse struct {
+	RunID  string   `json:"runId"`
+	Events []string `json:"events"`
+}
+
 func buildStatus(applicant *ApplicantRecord, in *engine.Instance, completed bool) StatusResponse {
 	step := in.CurrentStepID()
 	resp := StatusResponse{

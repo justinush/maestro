@@ -31,6 +31,7 @@ func main() {
 	fmt.Printf("kyc-backend listening on %s\n", addr)
 	fmt.Println("  POST /kyc/start")
 	fmt.Println("  GET  /kyc/{runID}")
+	fmt.Println("  GET  /kyc/{runID}/events")
 	fmt.Println("  POST /kyc/{runID}/profile")
 	fmt.Println("  POST /kyc/{runID}/document")
 	fmt.Println("  POST /kyc/{runID}/review")

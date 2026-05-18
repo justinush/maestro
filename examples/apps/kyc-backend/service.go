@@ -17,6 +17,9 @@ type KYCService struct {
 	applicants *ApplicantStore
 }
 
+// afterWorkflowSuccess persists app-owned data only after Maestro accepted input and the run was saved.
+type afterWorkflowSuccess func() error
+
 func NewKYCService(rt *maestro.Runtime, runs run.Store, applicants *ApplicantStore) *KYCService {
 	return &KYCService{
 		rt:         rt,
@@ -73,21 +76,37 @@ func (s *KYCService) Get(ctx context.Context, runID string) (StatusResponse, err
 	return buildStatus(app, in, completed), nil
 }
 
-func (s *KYCService) SubmitProfile(ctx context.Context, runID string, p Profile) (StatusResponse, error) {
-	if err := s.applicants.SaveProfile(runID, p); err != nil {
-		return StatusResponse{}, err
+func (s *KYCService) GetEvents(ctx context.Context, runID string) (EventsResponse, error) {
+	if _, err := s.applicants.GetByRunID(runID); err != nil {
+		return EventsResponse{}, err
 	}
+	in, err := restoreRun(ctx, s.rt, s.runs, runID)
+	if err != nil {
+		return EventsResponse{}, err
+	}
+	events := in.Events()
+	lines := make([]string, len(events))
+	for i := range events {
+		lines[i] = events[i].String()
+	}
+	return EventsResponse{RunID: runID, Events: lines}, nil
+}
+
+func (s *KYCService) SubmitProfile(ctx context.Context, runID string, p Profile) (StatusResponse, error) {
 	return s.submitOnStep(ctx, runID, "collect-profile", map[string]any{
 		"fullName": p.FullName,
 		"email":    p.Email,
+	}, func() error {
+		return s.applicants.SaveProfile(runID, p)
 	})
 }
 
 func (s *KYCService) SubmitDocument(ctx context.Context, runID string, d Document) (StatusResponse, error) {
-	if err := s.applicants.AddDocument(runID, d); err != nil {
+	app, err := s.applicants.GetByRunID(runID)
+	if err != nil {
 		return StatusResponse{}, err
 	}
-	if err := FakeVendorCheckLiveness(runID); err != nil {
+	if err := FakeVendorCheckLiveness(app.ApplicantID); err != nil {
 		return StatusResponse{}, err
 	}
 	needsReview := d.Type == "passport"
@@ -97,6 +116,8 @@ func (s *KYCService) SubmitDocument(ctx context.Context, runID string, d Documen
 		"review": map[string]any{
 			"required": needsReview,
 		},
+	}, func() error {
+		return s.applicants.AddDocument(runID, d)
 	})
 }
 
@@ -106,10 +127,15 @@ func (s *KYCService) SubmitReview(ctx context.Context, runID string, approved bo
 		"review": map[string]any{
 			"approved": approved,
 		},
-	})
+	}, nil)
 }
 
-func (s *KYCService) submitOnStep(ctx context.Context, runID, wantStep string, input map[string]any) (StatusResponse, error) {
+func (s *KYCService) submitOnStep(
+	ctx context.Context,
+	runID, wantStep string,
+	input map[string]any,
+	after afterWorkflowSuccess,
+) (StatusResponse, error) {
 	in, err := restoreRun(ctx, s.rt, s.runs, runID)
 	if err != nil {
 		return StatusResponse{}, err
@@ -121,7 +147,6 @@ func (s *KYCService) submitOnStep(ctx context.Context, runID, wantStep string, i
 	sub := in.SubmitInput(input)
 	switch sub.Status {
 	case engine.SubmitAdvanced, engine.SubmitStayOnStep:
-		// ok
 	case engine.SubmitFailed:
 		return StatusResponse{}, fmt.Errorf("submit input: %w", sub.Err)
 	default:
@@ -133,6 +158,12 @@ func (s *KYCService) submitOnStep(ctx context.Context, runID, wantStep string, i
 	}
 	if err := saveRun(ctx, s.runs, runID, in, s.def); err != nil {
 		return StatusResponse{}, err
+	}
+
+	if after != nil {
+		if err := after(); err != nil {
+			return StatusResponse{}, err
+		}
 	}
 
 	app, err := s.applicants.GetByRunID(runID)

@@ -77,6 +77,7 @@ transitions:
     to: run-liveness-check
     priority: 0
 
+  # Passport sets review.required; both guards can be true after liveness — lower priority wins (manual review).
   - from: run-liveness-check
     to: manual-review
     priority: 0
