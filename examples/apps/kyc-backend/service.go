@@ -33,8 +33,6 @@ func (s *KYCService) Start(ctx context.Context) (StatusResponse, error) {
 	applicantID := newID("app")
 	runID := newID("run")
 
-	s.applicants.Create(applicantID, runID)
-
 	in, err := s.rt.NewInstance(maestro.InstanceOptions{
 		RunID: runID,
 		InitialVariables: map[string]any{
@@ -51,6 +49,8 @@ func (s *KYCService) Start(ctx context.Context) (StatusResponse, error) {
 	if err := persistNewRun(ctx, s.runs, in, s.def); err != nil {
 		return StatusResponse{}, err
 	}
+
+	s.applicants.Create(applicantID, runID)
 
 	app, err := s.applicants.GetByRunID(runID)
 	if err != nil {
@@ -93,6 +93,9 @@ func (s *KYCService) GetEvents(ctx context.Context, runID string) (EventsRespons
 }
 
 func (s *KYCService) SubmitProfile(ctx context.Context, runID string, p Profile) (StatusResponse, error) {
+	if err := p.Validate(); err != nil {
+		return StatusResponse{}, err
+	}
 	return s.submitOnStep(ctx, runID, "collect-profile", map[string]any{
 		"fullName": p.FullName,
 		"email":    p.Email,
@@ -102,6 +105,9 @@ func (s *KYCService) SubmitProfile(ctx context.Context, runID string, p Profile)
 }
 
 func (s *KYCService) SubmitDocument(ctx context.Context, runID string, d Document) (StatusResponse, error) {
+	if err := d.Validate(); err != nil {
+		return StatusResponse{}, err
+	}
 	app, err := s.applicants.GetByRunID(runID)
 	if err != nil {
 		return StatusResponse{}, err
@@ -141,7 +147,7 @@ func (s *KYCService) submitOnStep(
 		return StatusResponse{}, err
 	}
 	if in.CurrentStepID() != wantStep {
-		return StatusResponse{}, fmt.Errorf("wrong step: want %q, at %q", wantStep, in.CurrentStepID())
+		return StatusResponse{}, fmt.Errorf("%w: want %q, at %q", ErrWrongStep, wantStep, in.CurrentStepID())
 	}
 
 	sub := in.SubmitInput(input)

@@ -8,4 +8,7 @@ var (
 
 	// ErrApplicantNotFound means no applicant record exists for the given run or applicant id.
 	ErrApplicantNotFound = errors.New("applicant: not found")
+
+	// ErrInvalidInput means app-level request validation failed (before Maestro inputSchema).
+	ErrInvalidInput = errors.New("invalid input")
 )

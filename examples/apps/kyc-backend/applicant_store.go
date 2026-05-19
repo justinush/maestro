@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -18,9 +19,29 @@ type Profile struct {
 	Email    string `json:"email"`
 }
 
+func (p Profile) Validate() error {
+	if strings.TrimSpace(p.FullName) == "" {
+		return fmt.Errorf("%w: fullName is required", ErrInvalidInput)
+	}
+	if strings.TrimSpace(p.Email) == "" {
+		return fmt.Errorf("%w: email is required", ErrInvalidInput)
+	}
+	return nil
+}
+
 type Document struct {
 	Type string `json:"documentType"`
 	Ref  string `json:"documentRef"`
+}
+
+func (d Document) Validate() error {
+	if strings.TrimSpace(d.Type) == "" {
+		return fmt.Errorf("%w: documentType is required", ErrInvalidInput)
+	}
+	if strings.TrimSpace(d.Ref) == "" {
+		return fmt.Errorf("%w: documentRef is required", ErrInvalidInput)
+	}
+	return nil
 }
 
 type ApplicantStore struct {

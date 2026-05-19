@@ -138,6 +138,8 @@ func writeError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case errors.Is(err, ErrWrongStep):
 		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, ErrInvalidInput):
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
