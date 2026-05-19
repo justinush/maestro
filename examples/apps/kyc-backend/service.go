@@ -108,6 +108,16 @@ func (s *KYCService) SubmitDocument(ctx context.Context, runID string, d Documen
 	if err := d.Validate(); err != nil {
 		return StatusResponse{}, err
 	}
+
+	const wantStep = "document-upload"
+	in, err := restoreRun(ctx, s.rt, s.runs, runID)
+	if err != nil {
+		return StatusResponse{}, err
+	}
+	if in.CurrentStepID() != wantStep {
+		return StatusResponse{}, fmt.Errorf("%w: want %q, at %q", ErrWrongStep, wantStep, in.CurrentStepID())
+	}
+
 	app, err := s.applicants.GetByRunID(runID)
 	if err != nil {
 		return StatusResponse{}, err
@@ -115,6 +125,7 @@ func (s *KYCService) SubmitDocument(ctx context.Context, runID string, d Documen
 	if err := FakeVendorCheckLiveness(app.ApplicantID); err != nil {
 		return StatusResponse{}, err
 	}
+
 	needsReview := d.Type == "passport"
 	return s.submitOnStep(ctx, runID, "document-upload", map[string]any{
 		"documentType": d.Type,
