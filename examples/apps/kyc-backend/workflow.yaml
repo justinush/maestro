@@ -39,6 +39,13 @@ steps:
           type: string
         documentRef:
           type: string
+        review:
+          type: object
+          required: [required]
+          properties:
+            required:
+              type: boolean
+          additionalProperties: false
       additionalProperties: false
     onEnter: []
 
@@ -62,6 +69,13 @@ steps:
       properties:
         approved:
           type: boolean
+        review:
+          type: object
+          required: [approved]
+          properties:
+            approved:
+              type: boolean
+          additionalProperties: false
       additionalProperties: false
     onEnter: []
 
