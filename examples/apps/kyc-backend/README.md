@@ -2,7 +2,34 @@
 
 Minimal HTTP API that embeds Maestro like a real KYC service.
 
-This demo wires REST handlers to `pkg/maestro` and `pkg/run`. Maestro owns the workflow graph; your app owns applicants, documents, and UI-facing status.
+This example shows how a backend service can:
+
+- restore a workflow run per request
+- submit user input into Maestro
+- drive the workflow forward
+- persist workflow snapshots
+- return UI-friendly status responses
+
+Unlike the smaller demos under `examples/demos/`, this app demonstrates a near real-world request/response integration shape.
+
+<p align="center">
+  <img src="./.docs/assets/kyc-backend.excalidraw.png" alt="library-basic flow" width="960">
+</p>
+
+---
+
+## Workflow
+
+```txt
+collect-profile -> document-upload -> run-liveness-check -> approved
+                                              \-> manual-review -> approved
+```
+
+Passport uploads require manual review. Other document types auto-approve after liveness.
+
+---
+
+## HTTP API
 
 ```txt
 POST /kyc/start
@@ -13,27 +40,23 @@ POST /kyc/{runID}/document
 POST /kyc/{runID}/review
 ```
 
-Mutating handlers follow: restore run → validate step → `SubmitInput` → `RunUntilBlocked` → save workflow → save app data → return status.
+Mutating requests follow the same lifecycle:
 
 ```txt
-collect-profile -> document-upload -> run-liveness-check -> approved
-                                              \-> manual-review -> approved
+restore run -> validate step -> SubmitInput -> RunUntilBlocked -> save snapshot -> return status
 ```
-
-Passport uploads set `review.required` and route to manual review; other document types can auto-approve after liveness.
 
 ---
 
 ## What this demo shows
 
-- embedding Maestro behind HTTP handlers
-- persisting and restoring workflow runs per request
-- `SubmitInput` on human steps from API payloads
-- app-owned data saved only after workflow success
-- mapping `currentStepId` to UI-friendly `status`
-- execution trace via `GET /kyc/{runID}/events`
-
-Use this after the three demos under `examples/demos/` when you need a request/response shape, not just a scripted `main`.
+- embedding Maestro behind REST handlers
+- workflow persistence + restore per request
+- `SubmitInput` on human steps
+- app-owned business data beside workflow state
+- step-to-status mapping for frontend APIs
+- execution trace via `/events`
+- workflow-first orchestration flow
 
 ---
 
@@ -45,56 +68,112 @@ From the repository root:
 go run ./examples/apps/kyc-backend
 ```
 
-Server listens on `:8080` (override with `ADDR`).
+Server listens on `:8080`.
+
+Override:
+
+```bash
+ADDR=:9000 go run ./examples/apps/kyc-backend
+```
 
 ---
 
-## Expected flow (curl)
+## Example flow
+
+Start a KYC run:
 
 ```bash
 curl -s -X POST http://localhost:8080/kyc/start | jq
-export RUN_ID=run_xxxxxxxx
-
-curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/profile" \
-  -H 'Content-Type: application/json' \
-  -d '{"fullName":"Demo User","email":"demo@example.com"}' | jq
-
-curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/document" \
-  -H 'Content-Type: application/json' \
-  -d '{"documentType":"national_id","documentRef":"doc-123"}' | jq
-
-curl -s "http://localhost:8080/kyc/${RUN_ID}" | jq
-curl -s "http://localhost:8080/kyc/${RUN_ID}/events" | jq
 ```
 
-Passport path (manual review):
+Save the returned run id:
+
+```bash
+export RUN_ID=run_xxxxxxxx
+```
+
+Submit profile:
+
+```bash
+curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/profile" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "fullName":"Justin",
+    "email":"justin@maestro.io"
+  }' | jq
+```
+
+Submit document:
 
 ```bash
 curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/document" \
   -H 'Content-Type: application/json' \
-  -d '{"documentType":"passport","documentRef":"pass-456"}' | jq
-
-curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/review" \
-  -H 'Content-Type: application/json' \
-  -d '{"approved":true}' | jq
+  -d '{
+    "documentType":"national_id",
+    "documentRef":"doc-123"
+  }' | jq
 ```
 
-Typical statuses: `awaiting_profile`, `awaiting_document`, `awaiting_review`, `approved`.
+Read current status:
+
+```bash
+curl -s "http://localhost:8080/kyc/${RUN_ID}" | jq
+```
+
+Read execution trace:
+
+```bash
+curl -s "http://localhost:8080/kyc/${RUN_ID}/events" | jq
+```
 
 ---
 
-## Files
+## Manual review path
+
+Passport documents route to manual review:
+
+```bash
+curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/document" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "documentType":"passport",
+    "documentRef":"pass-456"
+  }' | jq
+```
+
+Approve review:
+
+```bash
+curl -s -X POST "http://localhost:8080/kyc/${RUN_ID}/review" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "approved": true
+  }' | jq
+```
+
+Typical statuses:
+
+```txt
+awaiting_profile
+awaiting_document
+awaiting_review
+approved
+```
+
+---
+
+## Project structure
 
 | File | Purpose |
 |---|---|
 | `main.go` | HTTP server entrypoint |
-| `handler.go` | REST routes + strict JSON decode |
-| `service.go` | workflow-first submit lifecycle |
-| `errors.go` | sentinel errors for HTTP mapping |
-| `status.go` | step → UI `status` |
-| `applicant_store.go` | app-owned applicant data |
-| `maestro_store.go` | run persistence helpers |
-| `vendor.go` | fake vendor hook (by applicant id) |
+| `handlers.go` | REST routes + strict JSON decoding |
+| `service.go` | workflow lifecycle orchestration |
+| `status.go` | UI-facing response mapping |
+| `errors.go` | sentinel app errors |
+| `applicant_store.go` | app-owned business data |
+| `maestro_store.go` | workflow persistence helpers |
+| `vendor.go` | fake vendor integration hook |
 | `workflow.go` | embedded workflow loader |
 | `workflow.yaml` | sample KYC workflow |
 
@@ -102,21 +181,25 @@ Typical statuses: `awaiting_profile`, `awaiting_document`, `awaiting_review`, `a
 
 ## Real-world mapping
 
-| Piece | Role |
+| Demo piece | Production equivalent |
 |---|---|
-| HTTP handlers | your API layer |
-| `ApplicantStore` | your DB tables / CRM |
-| `run.Store` | workflow snapshot storage |
-| `SubmitInput` | form submission per screen |
-| `status.go` | response DTOs for the UI |
-| `/events` | support / debug trace |
+| HTTP handlers | API layer |
+| `ApplicantStore` | database / CRM |
+| `run.Store` | workflow persistence storage |
+| `SubmitInput` | form submission |
+| `/events` | support/debug trace |
+| `status.go` | frontend DTO mapping |
 
-In production, replace `MemoryStore` with a real database and swap the liveness stub for an HTTP action (see `examples/demos/http-runner`).
+In production:
+
+- replace `MemoryStore` with a real database
+- replace the fake vendor with HTTP actions (`examples/demos/http-runner`)
+- add auth, retries, observability, and async callbacks
 
 ---
 
-## Related demos
+## Related examples
 
-- [`library-basic`](../../demos/library-basic) — smallest embed path
-- [`embed-kyc-service`](../../demos/embed-kyc-service) — persist + restore without HTTP
-- [`http-runner`](../../demos/http-runner) — vendor HTTP from the workflow
+- [`library-basic`](../../demos/library-basic) — smallest embedding example
+- [`embed-kyc-service`](../../demos/embed-kyc-service) — pause/resume + persistence
+- [`http-runner`](../../demos/http-runner) — HTTP actions from workflows
