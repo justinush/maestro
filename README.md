@@ -1,284 +1,280 @@
-# Maestro
+<div align="center">
 
-Extensible workflow runtime for KYC and onboarding systems.
+# Maestro - embedded workflow orchestration for KYC and onboarding systems
 
-## The problem
+Human-in-the-loop workflow orchestration for Go backends.
 
-Onboarding flows have a habit of leaking into application code: another `if` for a new corridor, vendor response handling wedged next to routing logic, and three services that all “know” what step comes next. It works until it doesn’t.
+[![Go Reference](https://pkg.go.dev/badge/github.com/justinush/maestro.svg)](https://pkg.go.dev/github.com/justinush/maestro)
+[![Go Report Card](https://goreportcard.com/badge/github.com/justinush/maestro)](https://goreportcard.com/report/github.com/justinush/maestro)
+[![License](https://img.shields.io/github/license/justinush/maestro)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/justinush/maestro)](https://github.com/justinush/maestro/releases)
 
-You end up with:
+**[Introduction](#introduction) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
+**[Quick Start](#quick-start) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
+**[Examples](#examples) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
+**[Architecture](#architecture) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
+**[Roadmap](#roadmap) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
+**[Contributing](#contributing)**
 
-- Journeys that are hard to read as a whole, and painful to diff or review.
-- Transitions that only exist inside services, so reuse across markets or entities is awkward.
-- Vendor-specific paths tangled with orchestration, so swapping or testing integrations is expensive.
-- Debugging and audits that depend on piecing together logs instead of a clear run story.
-- Every regional tweak turning into a deploy and a round of regression testing.
+</div>
 
-None of that is novel—it’s just the cost of encoding workflows by hand once the product gets broad enough.
+---
 
-## The solution
+## Introduction
 
-Maestro splits the problem in two: **what the journey is** (a file checked into git) and **how you run it** (a Go library you embed wherever you already run Go).
+Maestro is an embedded workflow orchestration runtime originally designed for KYC and onboarding systems.
 
-You get:
+It helps backend applications execute long-running flows involving:
 
-- YAML/JSON definitions with steps, transitions, and CEL guards—fewer ad hoc `switch` trees for “what’s next.”
-- The same engine behind the CLI and your service or worker tests.
-- Action types (`stub`, `http` today) behind a registry, plus room for your own runners.
-- `validate` and `simulate` so bad definitions fail early and scenarios can assert on outcomes.
-- A trace of what happened during a run while it lives in memory.
-- Snapshots plus a tiny `pkg/run` store interface (in-memory implementation included) when you’re ready to persist without dragging a database into the core.
+- human approval steps
+- external vendor actions
+- pause/resume execution
+- persistence + restore
+- workflow-driven orchestration
 
-Maestro is not intended to replace application code or business systems. It focuses on workflow orchestration primitives and embeddable runtime execution.
+Unlike orchestration platforms that require separate infrastructure, Maestro runs directly inside your Go application as a library.
 
-## Why Maestro?
+Typical use cases:
 
-Most teams start with plain code: `if` chains, service-local state, vendor SDKs in the same package. That’s fine at small scale. It gets brittle when corridors multiply and every change feels like a production gamble.
+- KYC onboarding
+- manual review systems
+- fintech operations
+- multi-step onboarding
+- backoffice workflows
+- approval flows
 
-Roughly:
+---
 
-- **Today:** “what happens next” is implied by scattered code; hard to see the journey as one artifact.
-- **With Maestro:** the journey is a definition you can read top to bottom, version, and argue about in review.
+## Quick Start
 
-- **Today:** onboarding rules and HTTP calls to vendors often share a file.
-- **With Maestro:** orchestration (steps, guards, `variables`) stays separate from runners that do I/O.
+Install:
 
-- **Today:** another country or entity often means another branch in code.
-- **With Maestro:** often another definition (or the same graph with different data in `variables`) instead of rewriting the engine.
+```bash
+go get github.com/justinush/maestro
+```
 
-- **Today:** “what did this user hit?” is reconstructed from logs.
-- **With Maestro:** you get a structured trace; `simulate` can pin branches in CI so regressions show up before users do.
+Minimal example:
 
-You still write integration code. The point is to stop burying the whole story inside it.
+```go
+package main
 
-## Core concepts (v0.1)
+import (
+	"fmt"
 
-**Workflow definition** — YAML/JSON with `steps` and `transitions`. Schema version is `0.1` for now.
+	"github.com/justinush/maestro/pkg/engine"
+	"github.com/justinush/maestro/pkg/maestro"
+)
 
-**Step kinds**
+func main() {
+	rt, err := maestro.Load("workflow.yaml")
+	if err != nil {
+		panic(err)
+	}
 
-- `human` — waits for `SubmitInput`.
-- `action` — runs `onEnter` / `onExit` actions, then moves on via transitions.
-- `end` — terminal; must appear in `terminalStepIds`.
+	in, err := rt.NewInstance(maestro.InstanceOptions{})
+	if err != nil {
+		panic(err)
+	}
 
-### Exit guards
+	res := in.RunUntilBlocked()
 
-To leave a step you pick a **transition**. If `transitions[].when` is set, it’s a CEL **exit guard** (must be true for that edge). Empty `when` means unconditional, with ordering by `priority` then declaration order when ties matter.
+	switch res.Status {
+	case engine.RunBlocked:
+		fmt.Println("workflow paused for human input")
 
-Practical habit: let `onEnter` / `onExit` and `SubmitInput` write the fields your guards read in `variables`, instead of hiding state only in UI or opaque blobs.
+	case engine.RunCompleted:
+		fmt.Println("workflow completed")
 
-Guards see `variables` in CEL today—keep names stable between actions, guards, and tests.
+	case engine.RunFailed:
+		panic(res.Err)
+	}
+}
+```
 
-### Variables
+Example workflow:
 
-`variables` is the bag of instance state. Top-level keys come from `stub`, from `http` (via `resultVariable`), and from a shallow merge on `SubmitInput`. Nested values are fine; you’re still replacing whole top-level keys unless you model paths yourself.
+```yaml
+schemaVersion: "0.1"
 
-Suggested keys (the engine doesn’t enforce this—it’s convention):
+id: onboarding
+version: "1.0.0"
 
-| Area | Key | Notes |
-|------|-----|--------|
-| Partner / sync | `partner` | e.g. `status`, errors |
-| Base / profile | `profile` or flat keys | whatever you agree at “COR-style” steps |
-| Liveness | `liveness` | e.g. `passed` |
-| Address / POA | `address` | e.g. `status`, `reviewRequired` |
-| Integrations | `integration`, … | probe payloads, flags |
+initialStepId: collect-profile
+terminalStepIds:
+  - approved
 
-Use the same names in definitions, `simulate`’s `initialVariables`, and `expectVariables` so CEL and scenarios stay boring in a good way.
+steps:
+  - id: collect-profile
+    kind: human
 
-### Input schema
+  - id: approved
+    kind: end
 
-`steps[].inputSchema` is JSON Schema. On `human` steps, `SubmitInput` is checked against it before merge.
+transitions:
+  - from: collect-profile
+    to: approved
+```
+
+---
 
 ## Architecture
 
-Maestro is meant to be **imported**: definitions and checks sit on top of a small engine; side effects go through runners; your app owns databases, auth, queues, and whatever stores snapshots.
+Maestro follows an embedded orchestration model.
 
-```
-definition (YAML / JSON)
-           ↓
-validate + simulate
-           ↓
-engine (instance)
-           ↓
-action runners
-           ↓
-your app
-```
+Your application owns:
 
-The `maestro` binary is thin glue over `pkg/validate` and `pkg/engine`—the same primitives you embed (`pkg/maestro` wraps decode + validate for a shorter first path).
+- HTTP APIs
+- authentication
+- business data
+- UI
+- database models
 
-## Requirements
+Maestro owns:
 
-- [Go](https://go.dev/dl/) **1.26+** (see `go.mod`)
+- workflow graph execution
+- orchestration lifecycle
+- transitions
+- human steps
+- execution trace
 
-## Quick start
+![Architecture](./docs/assets/architecture.png)
 
-```bash
-go build -o maestro ./cmd/maestro
-./maestro validate -f examples/workflows/workflow-v0-minimal.yaml
-```
-
-Without installing a binary:
-
-```bash
-go run ./cmd/maestro validate -f examples/workflows/workflow-v0-minimal.yaml
-```
-
-Run a scripted scenario (with assertions):
-
-```bash
-go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml
-```
-
-Trace (plain text or JSON):
-
-```bash
-go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace
-go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace --trace-format json
-go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace-guards
-```
-
-Custom schema and louder errors:
-
-```bash
-./maestro validate -f path/to/workflow.yaml --schema path/to/schema.json --verbose
-```
-
-Smoke the minimal example:
-
-```bash
-make validate-example
-```
-
-Broader smoke (minimal + negative scenarios + Singapore portrait):
-
-```bash
-make smoke
-```
+---
 
 ## Examples
 
-### Minimal onboarding
+The repository includes progressively more advanced examples.
 
-See `examples/workflows/workflow-v0-minimal.yaml`: human `collect-profile` → action `run-checks` (stub flips `checksStarted`) → `done`, with CEL on the edge into `done`. Drive it with `examples/scenarios/scenario-minimal.yaml`.
+| Example | Purpose |
+|---|---|
+| [`library-basic`](./examples/demos/library-basic) | smallest embedding example |
+| [`embed-kyc-service`](./examples/demos/embed-kyc-service) | pause/resume + persistence |
+| [`http-runner`](./examples/demos/http-runner) | external HTTP actions |
+| [`kyc-backend`](./examples/apps/kyc-backend) | realistic backend integration |
 
-### Singapore portrait
+---
 
-Under `examples/kyc/sg/portrait/` there’s a longer path (partner gate, relationship capture, stubbed integration, liveness, address, several end states). Scenarios: `scenario-happy.yaml`, `scenario-partner-rejected.yaml`, `scenario-poa-review.yaml`. The checked-in workflow uses stubs for the integration probe so `make smoke` stays off the public internet.
+## Core Concepts
 
-### What a trace looks like
+### Runtime
 
-```bash
-go run ./cmd/maestro simulate -s examples/scenarios/scenario-minimal.yaml --trace
+A loaded and validated workflow definition.
+
+```go
+rt, err := maestro.Load("workflow.yaml")
 ```
 
-You’ll see lines like (ids may differ if you change the example):
+### Instance
 
-```
-0001 step.entered step="collect-profile"
-0002 action.ran step="collect-profile" list=onEnter action="init-vars" type="stub"
-0003 run.blocked step="collect-profile"
-0004 input.accepted step="collect-profile" keys=["fullName"]
-0005 transition.taken idx=0 from="collect-profile" to="run-checks"
-0006 step.entered step="run-checks"
-0007 action.ran step="run-checks" list=onEnter action="mark-checks-started" type="stub"
-0008 transition.taken idx=1 from="run-checks" to="done"
-0009 step.entered step="done"
-0010 run.completed step="done"
-ok (completed "done")
+A running workflow execution.
+
+```go
+in, err := rt.NewInstance(maestro.InstanceOptions{})
 ```
 
-`--trace-format json` for machines; `--trace-guards` if you’re debugging why a guard didn’t fire.
+### Human Steps
 
-## Library
+Execution pauses until the application submits input.
 
-Import paths (same module you’d `go get` after tagging):
-
-- `github.com/justinush/maestro/pkg/maestro` — **`Load`** / **`LoadWithValidate`** / **`Compile`**: decode + validate in one step; **`Runtime.NewInstance`** with **`InstanceOptions`** (optional registry, run id, initial variables).
-- `github.com/justinush/maestro/pkg/definition` — types and strict `DecodeFile`.
-- `github.com/justinush/maestro/pkg/engine` — `NewInstance`, **`RunUntilBlocked()`** → **`RunResult`**, **`SubmitInput()`** → **`SubmitInputResult`**, registry, `ActionRunner`, snapshots.
-- `github.com/justinush/maestro/pkg/validate` — same checks as `maestro validate`.
-- `github.com/justinush/maestro/pkg/run` — `Store`, `MemoryStore`, `RunRecord` around `engine.Snapshot` with optimistic `revision`; reload with `NewInstanceFromSnapshot` and the **same** workflow definition.
-
-Happy path: **`maestro.Load`** (or decode + validate) → `NewInstance` → **`RunUntilBlocked()`** / switch on **`RunResult.Status`** → on **`RunBlocked`**, **`SubmitInput()`** / switch on **`SubmitInputResult.Status`** → repeat until **`RunCompleted`** or **`RunFailed`**; snapshot via **`pkg/run`** when needed.
-
-Tiny embed example:
-
-```bash
-go run ./examples/demos/library-basic examples/workflows/workflow-v0-minimal.yaml
+```go
+sub := in.SubmitInput(...)
 ```
 
-That one uses **`pkg/maestro`** and stops at the first human step on purpose (`RunBlocked`)—see **`examples/demos/embed-kyc-service`** for **`SubmitInput`** and **`pkg/run`**, and **`examples/demos/http-runner`** for HTTP actions.
+### Persistence
 
-When you publish versions, pin in the consumer’s `go.mod`, e.g. `require github.com/justinush/maestro v0.1.0`.
+Workflow runs can be stored and restored across requests.
 
-## CLI
-
-### `maestro validate`
-
-Strict decode, JSON Schema (embedded v0.1 or `--schema`), graph checks, CEL compile on `when`, stub/http params, `inputSchema` compile.
-
-### `maestro simulate`
-
-Loads a scenario file: initial `variables`, scripted inputs, assertions on completion or errors, optional trace flags.
-
-## Development
-
-```bash
-make test          # or: go test ./...
-make check         # lint + vet + test
-make build         # binary under dist/
-make smoke         # validate + simulate (minimal + negative + portrait)
+```go
+rec := run.RecordFromInstance(...)
+in, err := rt.RestoreInstance(...)
 ```
 
-`make help` lists the rest.
+### Actions
 
-## Action runners
+Workflow steps can execute external logic through registered runners.
 
-`onEnter` / `onExit` actions are keyed by `type` in the registry:
+```go
+reg := engine.RegistryWithHTTP(client)
+```
 
-| | `type` | Does |
-|---|--------|------|
-| Stub | `stub` | Writes `params.set` into `variables`; no network. |
-| HTTP | `http` | One request; result under `resultVariable` (`statusCode`, `headers`, `body`). |
-| Yours | anything | Implement `ActionRunner`, `Register` it like the built-ins. |
+---
 
-If you don’t pass `ActionRegistry`, you get stub only. The `simulate` command wires stub + HTTP so examples can hit real HTTP when the workflow asks for it.
+## Repository Structure
 
-## Persistence and execution model
+| Path | Purpose |
+|---|---|
+| `pkg/definition` | workflow schema + decoding |
+| `pkg/validate` | workflow validation |
+| `pkg/engine` | workflow runtime engine |
+| `pkg/run` | persistence abstractions |
+| `pkg/maestro` | high-level embedding APIs |
+| `examples/demos` | focused learning examples |
+| `examples/apps` | near real-world applications |
 
-An `Instance` is memory-only: current step, `variables`, trace, compiled guards. Nothing hits disk unless you write it.
+---
 
-When you’re ready:
+## Project Status
 
-- `Snapshot()` captures JSON-friendly state (step id, `variables`, `onEnterRan`, events, seq). CEL / input-schema caches are rebuilt on restore—not stored.
-- `NewInstanceFromSnapshot(def, snap, opts)` rebuilds from the same definition artifact you used when the run started (same id/version and graph).
+Maestro is currently in early `v0.x` development.
 
-`pkg/run` adds `Store` and a `MemoryStore` with a simple revision counter for “last write wins” style conflicts. Swap in Postgres or anything else behind `Store` when you need shared or durable runs.
+The core orchestration APIs are usable today, but some APIs may evolve before `v1` stability.
 
-## Current scope and non-goals
+Current focus areas:
 
-**In scope today** — synchronous stepping: **`RunUntilBlocked()`** walks `action` steps internally until **`RunBlocked`** (human), **`RunCompleted`** (terminal), or **`RunFailed`**; **`human`** waits on **`SubmitInput`**. v0.1 schema, CEL guards, JSON Schema on human input. CLI `validate` / `simulate`. Trace for the life of the instance. Go packages above.
+- embedding experience
+- workflow lifecycle clarity
+- persistence model
+- orchestration ergonomics
+- real-world backend integration
 
-**Not trying to be (yet)** — a distributed workflow cluster, a built-in scheduler or retry engine, a drag-and-drop designer, or a hosted multi-tenant product. We also don’t auto-fetch arbitrary external JSON Schema `$ref` chains (custom `$id` is fine; deep ref loading isn’t).
+---
 
 ## Roadmap
 
-Ideas we care about but haven’t promised on a calendar:
+Planned areas:
 
-- Threading `context.Context` through the run loop and runners.
-- Example `Store` implementations people can copy for SQL.
-- Trace timestamps, optional persistence, stable JSON for exporters.
-- CEL guard budgets if real workloads need them.
-- Better `$ref` story for shared schemas.
-- More scenario packs like the portrait folder.
+- Postgres store adapter
+- async callback/webhook flows
+- retry policies
+- workflow versioning semantics
+- improved typed variable access
+- richer execution observability
+
+Not planned yet:
+
+- hosted SaaS
+- distributed runtime cluster
+- visual workflow editor
+
+---
+
+## Why Maestro?
+
+Maestro focuses on:
+
+- embedded-first architecture
+- readable workflows
+- human + system orchestration
+- backend-oriented integration
+- application-owned control
+- simple runtime embedding
+
+The goal is to make workflow orchestration feel natural inside normal backend services.
+
+---
 
 ## Contributing
 
-Run `make check` before a PR; `make smoke` is the closest thing to “what CI cares about” locally. Small diffs with tests when behavior changes beat large refactors.
+Contributions, feedback, and discussions are welcome.
 
-Issues and PRs are welcome.
+Helpful links:
+
+- [examples](./examples)
+- [architecture notes](./docs/architecture.md)
+- [contributing guide](./CONTRIBUTING.md)
+
+---
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+[MIT](./LICENSE)
