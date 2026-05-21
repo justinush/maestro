@@ -137,7 +137,7 @@ Maestro owns:
 - human steps
 - execution trace
 
-![Architecture](./docs/assets/architecture.png)
+![Architecture](./.docs/assets/architecture.png)
 
 ---
 
@@ -270,7 +270,7 @@ Contributions, feedback, and discussions are welcome.
 Helpful links:
 
 - [examples](./examples)
-- [architecture notes](./docs/architecture.md)
+- [architecture notes](./.docs/architecture.md)
 - [contributing guide](./CONTRIBUTING.md)
 
 ---
