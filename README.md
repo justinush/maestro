@@ -1,8 +1,8 @@
 <div align="center">
 
-# Maestro - embedded workflow orchestration for KYC and onboarding systems
+# Maestro—embedded workflow runtime
 
-Human-in-the-loop workflow orchestration for Go backends.
+Human-in-the-loop workflows for KYC and onboarding.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/justinush/maestro.svg)](https://pkg.go.dev/github.com/justinush/maestro)
 [![Go Report Card](https://goreportcard.com/badge/github.com/justinush/maestro)](https://goreportcard.com/report/github.com/justinush/maestro)
