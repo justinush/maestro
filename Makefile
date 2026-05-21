@@ -1,7 +1,7 @@
 GOLANGCI_LINT_VERSION ?= v2.12.1
 GOFUMPT_VERSION ?= v0.9.2
 
-MODULE := github.com/justinushermawan/maestro
+MODULE := github.com/justinush/maestro
 
 GO ?= go
 GO_PACKAGES ?= $(shell $(GO) list ./...)
