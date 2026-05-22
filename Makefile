@@ -8,6 +8,9 @@ GO_PACKAGES ?= $(shell $(GO) list ./...)
 
 DIST_DIR ?= dist
 BIN_NAME ?= maestro
+MAESTRO ?= $(DIST_DIR)/$(BIN_NAME)
+
+TEST_TIMEOUT ?= 10m
 
 GO_INSTALL_BIN := $(shell $(GO) env GOBIN)
 ifeq ($(GO_INSTALL_BIN),)
@@ -33,8 +36,16 @@ help:
 tidy:
 	$(GO) mod tidy
 
+.PHONY: verify
+verify:
+	$(GO) mod verify
+
 .PHONY: install-golangci-lint
 install-golangci-lint:
+	@test -x "$(GOLANGCI_LINT)" || $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: install-golangci-lint-force
+install-golangci-lint-force:
 	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: install-gofumpt
@@ -48,6 +59,10 @@ install-tools: install-golangci-lint install-gofumpt
 
 .PHONY: fmt
 fmt: install-gofumpt
+	"$(GOFUMPT)" -extra -w .
+
+.PHONY: fmt-quick
+fmt-quick: install-gofumpt
 	"$(GOFUMPT)" -extra -w .
 
 .PHONY: vet
@@ -65,15 +80,18 @@ lint-fix: install-golangci-lint
 .PHONY: check
 check: lint vet test
 
+.PHONY: ci
+ci: verify check smoke build
+
 ##@ Test
 
 .PHONY: test
 test:
-	$(GO) test -count=1 ./...
+	$(GO) test -count=1 -timeout=$(TEST_TIMEOUT) ./...
 
 .PHONY: test-race
 test-race:
-	$(GO) test -count=1 -race ./...
+	$(GO) test -count=1 -race -timeout=$(TEST_TIMEOUT) ./...
 
 ##@ Build
 
@@ -89,30 +107,30 @@ install:
 ##@ Examples / smoke
 
 .PHONY: validate-example
-validate-example:
-	$(GO) run $(CLI_MAIN) validate -f examples/workflows/workflow-v0-minimal.yaml
+validate-example: build
+	"$(MAESTRO)" validate -f examples/workflows/workflow-v0-minimal.yaml
 
 .PHONY: simulate-example
-simulate-example:
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-minimal.yaml
+simulate-example: build
+	"$(MAESTRO)" simulate -s examples/scenarios/scenario-minimal.yaml
 
 .PHONY: simulate-negative
-simulate-negative:
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-invalid-missing-required.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-invalid-additional-property.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-cel-runtime-error.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-cel-invalid.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/scenarios/scenario-ambiguous-unconditional.yaml
+simulate-negative: build
+	"$(MAESTRO)" simulate -s examples/scenarios/scenario-invalid-missing-required.yaml
+	"$(MAESTRO)" simulate -s examples/scenarios/scenario-invalid-additional-property.yaml
+	"$(MAESTRO)" simulate -s examples/scenarios/scenario-cel-runtime-error.yaml
+	"$(MAESTRO)" simulate -s examples/scenarios/scenario-cel-invalid.yaml
+	"$(MAESTRO)" simulate -s examples/scenarios/scenario-ambiguous-unconditional.yaml
 
 .PHONY: validate-portrait
-validate-portrait:
-	$(GO) run $(CLI_MAIN) validate -f examples/kyc/sg/portrait/workflow.yaml
+validate-portrait: build
+	"$(MAESTRO)" validate -f examples/kyc/sg/portrait/workflow.yaml
 
 .PHONY: simulate-portrait
-simulate-portrait:
-	$(GO) run $(CLI_MAIN) simulate -s examples/kyc/sg/portrait/scenario-happy.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/kyc/sg/portrait/scenario-partner-rejected.yaml
-	$(GO) run $(CLI_MAIN) simulate -s examples/kyc/sg/portrait/scenario-poa-review.yaml
+simulate-portrait: build
+	"$(MAESTRO)" simulate -s examples/kyc/sg/portrait/scenario-happy.yaml
+	"$(MAESTRO)" simulate -s examples/kyc/sg/portrait/scenario-partner-rejected.yaml
+	"$(MAESTRO)" simulate -s examples/kyc/sg/portrait/scenario-poa-review.yaml
 
 .PHONY: smoke
 smoke: validate-example simulate-example simulate-negative validate-portrait simulate-portrait
@@ -122,4 +140,7 @@ smoke: validate-example simulate-example simulate-negative validate-portrait sim
 .PHONY: clean
 clean:
 	rm -rf $(DIST_DIR)
+
+.PHONY: clean-cache
+clean-cache: clean
 	$(GO) clean -cache -testcache 2>/dev/null || true

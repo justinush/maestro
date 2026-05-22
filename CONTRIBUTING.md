@@ -12,8 +12,9 @@ Before opening a large feature PR, please open an issue or discussion first.
 
 Requirements:
 
-- Go 1.24+
+- Go 1.26+
 - Git
+- Make (recommended)
 
 Clone the repository:
 
@@ -22,11 +23,40 @@ git clone https://github.com/justinush/maestro.git
 cd maestro
 ```
 
-Run tests:
+Install dev tools (first time):
+
+```bash
+make install-tools
+```
+
+Run the full local gate (same targets as CI):
+
+```bash
+make ci
+```
+
+Individual targets:
+
+```bash
+make test          # unit tests (-count=1, 10m timeout)
+make test-race     # unit tests with -race
+make smoke         # CLI validate/simulate scenarios
+make lint          # golangci-lint
+make fmt           # gofumpt format
+make lint-fix      # golangci-lint --fix
+make build         # build dist/maestro
+```
+
+Quick test only:
 
 ```bash
 go test ./...
 ```
+
+Formatting:
+
+- Run **`make fmt`** before a PR (gofumpt, matches extra-rules in `.golangci.yml`).
+- If `make lint` reports import order issues, run **`make lint-fix`** or fix imports manually (`gci` in `.golangci.yml`).
 
 Run the examples:
 
@@ -72,7 +102,7 @@ In general:
 
 Before opening a PR:
 
-- run `go test ./...`
+- run **`make ci`** (or at minimum `make check` and `make smoke`)
 - keep examples working
 - add tests when changing engine behavior
 - avoid unrelated refactors in the same PR
