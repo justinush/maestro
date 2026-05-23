@@ -3,7 +3,7 @@
 Smallest possible Maestro embedding example.
 
 <p align="center">
-  <img src="./.docs/assets/library-basic.excalidraw.png" alt="library-basic flow" width="960">
+  <img src="./docs/assets/library-basic.excalidraw.png" alt="library-basic flow" width="960">
 </p>
 
 This demo shows the minimum workflow lifecycle:

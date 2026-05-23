@@ -32,6 +32,7 @@ docker-compose.yml
 /.direnv
 /.envrc
 extras/
+.docs/
 /build/
 /dist/
 .DS_Store

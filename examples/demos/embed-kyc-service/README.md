@@ -3,7 +3,7 @@
 Minimal embedded KYC workflow lifecycle with persistence + restore.
 
 <p align="center">
-  <img src="./.docs/assets/embed-kyc-service.excalidraw.png" alt="library-basic flow" width="360">
+  <img src="./docs/assets/embed-kyc-service.excalidraw.png" alt="library-basic flow" width="360">
 </p>
 
 This demo simulates two backend requests sharing the same persisted workflow run.
