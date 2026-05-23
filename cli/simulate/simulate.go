@@ -85,7 +85,7 @@ func runScenario(cmd *cobra.Command, scenarioPath string, trace, traceGuards boo
 	in, err := engine.NewInstance(def, engine.Options{
 		InitialVariables: sc.InitialVariables,
 		TraceGuards:      traceGuards,
-		ActionRegistry:   engine.RegistryWithHTTP(engine.SimulateHTTPClient()),
+		ActionRegistry:   engine.RegistryWithHTTP(simulateHTTPClient()),
 	})
 	if err != nil {
 		if sc.ExpectErrorContains != "" {

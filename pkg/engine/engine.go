@@ -1,4 +1,11 @@
-// Package engine is the stable API for executing workflow definitions.
+// Package engine is the stable low-level API for executing workflow definitions.
+//
+// Most applications should start with pkg/maestro:
+//
+//	maestro.Load -> Runtime.NewInstance -> RunUntilBlocked -> SubmitInput
+//
+// Use pkg/engine when you need direct control over Options, action registries,
+// or Snapshost restore without the maestro.Runtime facade.
 //
 // Typical control flow: branch on RunResult.Status and SubmitInputResult.Status.
 // Err is set only when status is RunFailed or SubmitFailed.
@@ -106,11 +113,6 @@ func RegistryWithHTTP(client *http.Client) *Registry {
 	return iengine.RegistryWithHTTP(client)
 }
 
-// SimulateHTTPClient is a conservative HTTP client for simulation (long timeout).
-func SimulateHTTPClient() *http.Client {
-	return iengine.SimulateHTTPClient()
-}
-
 // NewStubRunner returns the built-in stub ActionRunner (usually accessed via DefaultRegistry).
 func NewStubRunner() ActionRunner {
 	return iengine.NewStubRunner()
@@ -129,7 +131,7 @@ func AsInputValidationError(err error) (*InputValidationError, bool) {
 	return nil, false
 }
 
-// AsUnknownStepError reports whether err unwrapes to *UnknownStepError.
+// AsUnknownStepError reports whether err unwraps to *UnknownStepError.
 func AsUnknownStepError(err error) (*UnknownStepError, bool) {
 	if v, ok := errors.AsType[*UnknownStepError](err); ok {
 		return v, true

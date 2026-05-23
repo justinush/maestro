@@ -45,12 +45,9 @@ A runtime creates workflow instances.
 
 ```txt
 workflow.yaml
-    ↓
-Runtime
-    ↓
-Instance
-    ↓
-RunUntilBlocked()
+    -> Runtime
+    -> Instance
+    -> RunUntilBlocked()
 ```
 
 Minimal example:
@@ -62,6 +59,30 @@ in, err := rt.NewInstance(maestro.InstanceOptions{})
 
 res := in.RunUntilBlocked()
 ```
+
+---
+
+# Public API
+
+**Canonical embed path:** `pkg/maestro`
+
+```txt
+maestro.Load*
+    -> Runtime.NewInstance
+    -> RunUntilBlocked
+    -> SubmitInput (when blocked, repeat)
+```
+
+**Persistence:** `pkg/run` (`Store`, `RunRecord`, `RecordFromInstance`)
+
+```txt
+RecordFromInstance -> Store.Create / Save
+Store.Get -> rt.RestoreInstance   (preferred in apps)
+```
+
+**Advanced:** `pkg/engine` for direct `Options`, registries, and `NewInstanceFromSnapshot`; `run.InstanceFromRecord` for store-layer restore without a `Runtime`.
+
+**HTTP actions:** pass your own `*http.Client` to `engine.RegistryWithHTTP`. The `maestro simulate` CLI uses a private long-timeout client (not exported from `pkg/engine`).
 
 ---
 
@@ -184,18 +205,12 @@ Typical lifecycle:
 
 ```txt
 start request
-    ↓
-RunUntilBlocked
-    ↓
-persist run
-    ↓
-future request
-    ↓
-restore run
-    ↓
-SubmitInput
-    ↓
-continue execution
+    -> RunUntilBlocked
+    -> persist run
+    -> future request
+    -> restore run
+    -> SubmitInput
+    -> continue execution
 ```
 
 This model fits naturally into:
@@ -210,7 +225,7 @@ This model fits naturally into:
 
 Workflow state is stored separately from your business data.
 
-Maestro persists:
+Maestro persists (in `run.RunRecord` / `engine.Snapshot`):
 - current step
 - variables
 - execution state
@@ -222,17 +237,40 @@ Your application persists:
 - documents
 - business entities
 
-Example:
+## Revision and optimistic locking
+
+`RunRecord.Revision` enables optimistic concurrency on `Store.Save`.
+
+| Step | Revision behavior |
+|------|-------------------|
+| `RecordFromInstance(..., 0)` + `Store.Create` | Stored revision becomes **1** |
+| `Store.Get` | Returns the current revision |
+| `Store.Save` | Succeeds only if `rec.Revision` matches; then revision increments |
+| Concurrent `Save` | Loser gets `run.ErrRevisionConflict` |
+
+JSON tags on `RunRecord` and `Snapshot` (`runId`, `revision`, `currentStepId`, …) are part of the v0.x persistence contract.
+
+## Save and restore
+
+Build a record after a request mutates the instance:
 
 ```go
-rec := run.RecordFromInstance(in, def, revision)
+rec := run.RecordFromInstance(in, def, 0)
+err = store.Create(ctx, rec)
 ```
 
-Restore later:
+Later request:
 
 ```go
-in, err := rt.RestoreInstance(rec, maestro.InstanceOptions{})
+rec, err := store.Get(ctx, runID)
+in, err := rt.RestoreInstance(rec, maestro.InstanceOptions{
+	ActionRegistry: reg,
+})
 ```
+
+`rt.RestoreInstance` is the preferred application API. `run.InstanceFromRecord` is the lower-level equivalent when implementing or calling `Store` directly.
+
+Continue execution with `SubmitInput` and `RunUntilBlocked` as on the first request.
 
 ---
 
@@ -276,6 +314,18 @@ The `kyc-backend` example exposes these through:
 ```txt
 GET /kyc/{runID}/events
 ```
+
+---
+
+# API stability (v0.x)
+
+Treat as **stable for v0.x** (breaking changes -> v1):
+
+- `RunRecord` / `Snapshot` / `Event` JSON field names
+- `RunStatus` and `SubmitInputStatus` enum values
+- Sentinel errors such as `run.ErrNotFound`, `run.ErrRevisionConflict`
+
+`pkg/maestro` is the supported embedding surface. Symbols in `pkg/engine` and `pkg/run` remain public for advanced use but may gain helpers without a major bump; semantic changes to persistence JSON or status enums will not.
 
 ---
 

@@ -3,7 +3,6 @@ package engine
 import (
 	"fmt"
 	"net/http"
-	"time"
 )
 
 // Registry maps workflow action "type" strings to ActionRunner implementations.
@@ -35,11 +34,6 @@ func RegistryWithHTTP(client *http.Client) *Registry {
 		panic("engine: registry with http: " + err.Error())
 	}
 	return r
-}
-
-// SimulateHTTPClient returns a conservative HTTP client for CLI/simulation (60s timeout).
-func SimulateHTTPClient() *http.Client {
-	return &http.Client{Timeout: 60 * time.Second}
 }
 
 // Register binds actionType to runner. Duplicate types return an error.

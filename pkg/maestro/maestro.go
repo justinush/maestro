@@ -1,3 +1,17 @@
+// Package maestro is the canonical embedding API for Maestro.
+//
+// Typical application flow:
+//
+//	rt, err := maestro.Load("workflow.yaml")
+//	in, err := rt.NewInstance(maestro.InstanceOptions{...})
+//	res := in.RunUntilBlocked()
+//	// when res.Status == engine.RunBlocked:
+//	sub := in.SubmitInput(map[string]any{...})
+//
+// Persist and resume across requests with pkg/run.Store, run.RecordFromInstance,
+// and rt.RestoreInstance (preferred over run.InstanceFromRecord in application code).
+//
+// Use pkg/engine and pkg/run directly for advanced or custom integrations.
 package maestro
 
 import (
@@ -100,9 +114,14 @@ func (rt *Runtime) NewInstance(opts InstanceOptions) (*engine.Instance, error) {
 	return engine.NewInstance(rt.def, instanceOptionsToEngine(opts))
 }
 
-// RestoreInstance rebuilds an engine.Instance from a stored RunRecord for this workflow.
-// Use the same ActionRegistry and TraceGuards semantics as when the run was created.
+// RestoreInstance rebuilds an engine.Instance from a stored RunRecord.
+//
+// This is the preferred restore path for application code. Use the same
+// ActionRegistry and TraceGuards semantics as when the run was created.
 // RunID is taken from opts when set, otherwise from rec.RunID.
+//
+// run.InstanceFromRecord offers the same restore at the persistence layer for
+// custom Store implementations.
 func (rt *Runtime) RestoreInstance(rec *run.RunRecord, opts InstanceOptions) (*engine.Instance, error) {
 	if rt == nil || rt.def == nil {
 		return nil, engine.ErrNilDefinition

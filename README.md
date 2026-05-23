@@ -118,6 +118,42 @@ transitions:
 
 ---
 
+## Embedding (canonical path)
+
+Use **`pkg/maestro`** as the main embedding API. Lower-level packages (`pkg/engine`, `pkg/run`) are for advanced customization.
+
+```txt
+maestro.Load*
+    -> Runtime.NewInstance
+    -> RunUntilBlocked
+    -> SubmitInput (when blocked)
+```
+
+Persistence across HTTP requests:
+
+```txt
+run.RecordFromInstance -> Store.Create / Store.Save
+Store.Get -> rt.RestoreInstance   (preferred)
+```
+
+Example restore (same workflow definition as when the run started):
+
+```go
+rec, err := runs.Get(ctx, runID)
+if err != nil {
+	return err
+}
+in, err := rt.RestoreInstance(rec, maestro.InstanceOptions{
+	ActionRegistry: reg, // same registry semantics as NewInstance
+})
+```
+
+For custom `Store` implementations, `run.InstanceFromRecord` is the lower-level equivalent of `RestoreInstance`.
+
+Provide your own `*http.Client` with `engine.RegistryWithHTTP(client)` for HTTP actions in production; the CLI `simulate` command uses an internal long-timeout client and does not export it from `pkg/engine`.
+
+---
+
 ## Architecture
 
 Maestro follows an embedded orchestration model.
@@ -183,16 +219,31 @@ sub := in.SubmitInput(...)
 
 ### Persistence
 
-Workflow runs can be stored and restored across requests.
+Workflow runs are stored separately from your business data.
 
 ```go
-rec := run.RecordFromInstance(...)
-in, err := rt.RestoreInstance(...)
+rec := run.RecordFromInstance(in, def, revision) // revision 0 before Create
+err = store.Create(ctx, rec)                     // stored revision becomes 1
+
+rec, err = store.Get(ctx, runID)                 // read current revision
+// ... mutate via SubmitInput / RunUntilBlocked ...
+err = store.Save(ctx, rec)                       // requires matching revision
 ```
+
+Restore on a later request (canonical path):
+
+```go
+in, err := rt.RestoreInstance(rec, maestro.InstanceOptions{})
+```
+
+`Store.Save` returns `run.ErrRevisionConflict` when another request updated the run first (optimistic locking).
+
+See [architecture notes](./docs/architecture.md#persistence-model) for details.
 
 ### Actions
 
 Workflow steps can execute external logic through registered runners.
+Embedders supply their own HTTP client:
 
 ```go
 reg := engine.RegistryWithHTTP(client)
@@ -204,11 +255,11 @@ reg := engine.RegistryWithHTTP(client)
 
 | Path | Purpose |
 |---|---|
+| `pkg/maestro` | **canonical** embedding API (start here) |
+| `pkg/engine` | workflow runtime (advanced / custom registries) |
+| `pkg/run` | persistence types and `Store` |
 | `pkg/definition` | workflow schema + decoding |
 | `pkg/validate` | workflow validation |
-| `pkg/engine` | workflow runtime engine |
-| `pkg/run` | persistence abstractions |
-| `pkg/maestro` | high-level embedding APIs |
 | `examples/demos` | focused learning examples |
 | `examples/apps` | near real-world applications |
 
@@ -219,6 +270,8 @@ reg := engine.RegistryWithHTTP(client)
 Maestro is currently in early `v0.x` development.
 
 The core orchestration APIs are usable today, but some APIs may evolve before `v1` stability.
+
+**Stability for v0.x:** JSON field names on `run.RunRecord`, `engine.Snapshot`, and `engine.Event`, plus `RunStatus` / `SubmitInputStatus` values, are treated as stable. Breaking changes to those shapes will require a major version bump.
 
 Current focus areas:
 
