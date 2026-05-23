@@ -5,6 +5,7 @@
 Human-in-the-loop workflows for KYC and onboarding.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/justinush/maestro.svg)](https://pkg.go.dev/github.com/justinush/maestro)
+[![CI](https://github.com/justinush/maestro/actions/workflows/ci.yml/badge.svg)](https://github.com/justinush/maestro/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/justinush/maestro)](https://goreportcard.com/report/github.com/justinush/maestro)
 [![License](https://img.shields.io/github/license/justinush/maestro)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/justinush/maestro)](https://github.com/justinush/maestro/releases)
