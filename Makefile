@@ -65,6 +65,10 @@ fmt: install-gofumpt
 fmt-quick: install-gofumpt
 	"$(GOFUMPT)" -extra -w .
 
+.PHONY: fmt-check
+fmt-check: install-gofumpt
+	@"$(GOFUMPT)" -extra -l . | tee /tmp/gofumpt.out; test ! -s /tmp/gofumpt.out
+
 .PHONY: vet
 vet:
 	$(GO) vet $(GO_PACKAGES)
@@ -78,10 +82,16 @@ lint-fix: install-golangci-lint
 	"$(GOLANGCI_LINT)" run --fix
 
 .PHONY: check
-check: lint vet test
+check: fmt-check lint vet test
 
 .PHONY: ci
 ci: verify check smoke build
+
+.PHONY: ci-action
+ci-action: verify fmt-check vet test smoke build
+
+.PHONY: release-check
+release-check: verify fmt-check vet test smoke
 
 ##@ Test
 

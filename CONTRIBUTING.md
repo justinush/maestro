@@ -29,11 +29,27 @@ Install dev tools (first time):
 make install-tools
 ```
 
-Run the full local gate (same targets as CI):
+Run the full local gate (fmt-check, lint, tests, smoke, CLI build):
 
 ```bash
 make ci
 ```
+
+GitHub Actions runs golangci-lint in a separate job; the workflow then runs:
+
+```bash
+make ci-action
+```
+
+That is `verify`, `fmt-check`, `vet`, `test`, `smoke`, and `build` — no `make lint` in that job. The same workflow job then runs **`make test-race`**; if race fails, that job fails.
+
+Before tagging a release, run locally (or rely on the release workflow):
+
+```bash
+make release-check
+```
+
+That is `verify`, `fmt-check`, `vet`, `test`, and `smoke`. The release workflow also runs golangci-lint, then builds the versioned binary.
 
 Individual targets:
 
@@ -43,6 +59,7 @@ make test-race     # unit tests with -race
 make smoke         # CLI validate/simulate scenarios
 make lint          # golangci-lint
 make fmt           # gofumpt format
+make fmt-check     # fail if gofumpt would change files
 make lint-fix      # golangci-lint --fix
 make build         # build dist/maestro
 ```
