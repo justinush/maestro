@@ -13,7 +13,7 @@ This example shows how a backend service can:
 Unlike the smaller demos under `examples/demos/`, this app demonstrates a near real-world request/response integration shape.
 
 <p align="center">
-  <img src="./docs/assets/kyc-backend.excalidraw.png" alt="library-basic flow" width="1060">
+  <img src="./docs/assets/kyc-backend.excalidraw.png" alt="kyc-backend flow" width="1060">
 </p>
 
 ---
