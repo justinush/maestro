@@ -16,11 +16,16 @@ import (
 //   - Store.Save succeeds only when rec.Revision matches the stored value, then increments it.
 //   - run.ErrRevisionConflict when another writer updated the run first.
 type RunRecord struct {
-	RunID           string          `json:"runId"`
-	WorkflowID      string          `json:"workflowId"`
-	WorkflowVersion string          `json:"workflowVersion"`
-	Revision        int64           `json:"revision"`
-	State           engine.Snapshot `json:"state"`
+	// RunID is the primary key for Store implementations.
+	RunID string `json:"runId"`
+	// WorkflowID matches WorkflowDefinition.ID.
+	WorkflowID string `json:"workflowId"`
+	// WorkflowVersion matches WorkflowDefinition.Version.
+	WorkflowVersion string `json:"workflowVersion"`
+	// Revision is the optimistic-lock token; see Store.Save.
+	Revision int64 `json:"revision"`
+	// State is the engine snapshot restored by InstanceFromRecord or RestoreInstance.
+	State engine.Snapshot `json:"state"`
 }
 
 // RecordFromInstance builds a RunRecord from a live instance.

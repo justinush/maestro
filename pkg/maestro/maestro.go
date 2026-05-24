@@ -97,13 +97,20 @@ func (rt *Runtime) Definition() *definition.WorkflowDefinition {
 	return rt.def
 }
 
-// InstanceOptions configures Runtime.NewInstance (registry, trace, variables, run id).
-// Zero value uses DefaultRegistry (stub only).
+// InstanceOptions configures Runtime.NewInstance and Runtime.RestoreInstance.
+// A zero value uses DefaultRegistry (stub only).
 type InstanceOptions struct {
-	RunID            string
+	// RunID overrides the run id; when empty on restore, RunRecord.RunID is used.
+	RunID string
+
+	// InitialVariables are applied only when creating a new instance (not on restore).
 	InitialVariables map[string]any
-	TraceGuards      bool
-	ActionRegistry   *engine.Registry
+
+	// TraceGuards enables transition guard events in the execution trace.
+	TraceGuards bool
+
+	// ActionRegistry provides action runners; nil uses engine.DefaultRegistry().
+	ActionRegistry *engine.Registry
 }
 
 // NewInstance builds an engine.Instance for this workflow at initialStepId.

@@ -55,40 +55,65 @@ const (
 )
 
 type Action struct {
-	Type   string  `json:"type" yaml:"type"`
-	ID     string  `json:"id" yaml:"id"`
+	// Type is the action registry key (for example "stub" or "http").
+	Type string `json:"type" yaml:"type"`
+	// ID is a stable identifier for tracing.
+	ID string `json:"id" yaml:"id"`
+	// Params is the action-specific JSON object.
 	Params RawJSON `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 type Step struct {
-	ID              string            `json:"id" yaml:"id"`
-	Kind            StepKind          `json:"kind" yaml:"kind"`
-	Description     string            `json:"description,omitempty" yaml:"description,omitempty"`
-	Labels          []string          `json:"labels,omitempty" yaml:"labels,omitempty"`
-	Annotations     map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	PresentationRef string            `json:"presentationRef,omitempty" yaml:"presentationRef,omitempty"`
-	InputSchema     RawJSON           `json:"inputSchema,omitempty" yaml:"inputSchema,omitempty"`
-	OnEnter         []Action          `json:"onEnter,omitempty" yaml:"onEnter,omitempty"`
-	OnExit          []Action          `json:"onExit,omitempty" yaml:"onExit,omitempty"`
+	// ID is the unique step identifier within the workflow.
+	ID string `json:"id" yaml:"id"`
+	// Kind is human, action, or end.
+	Kind StepKind `json:"kind" yaml:"kind"`
+	// Description is optional documentation for operators.
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	// Labels are optional searchable tags.
+	Labels []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	// Annotations are optional key/value metadata.
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	// PresentationRef is an optional UI hint for human steps.
+	PresentationRef string `json:"presentationRef,omitempty" yaml:"presentationRef,omitempty"`
+	// InputSchema is optional JSON Schema for human-step SubmitInput payloads.
+	InputSchema RawJSON `json:"inputSchema,omitempty" yaml:"inputSchema,omitempty"`
+	// OnEnter actions run when the step is entered.
+	OnEnter []Action `json:"onEnter,omitempty" yaml:"onEnter,omitempty"`
+	// OnExit actions run when leaving the step after a transition fires.
+	OnExit []Action `json:"onExit,omitempty" yaml:"onExit,omitempty"`
 }
 
 type Transition struct {
-	From     string `json:"from" yaml:"from"`
-	To       string `json:"to" yaml:"to"`
-	When     string `json:"when,omitempty" yaml:"when,omitempty"`
-	Priority int    `json:"priority,omitempty" yaml:"priority,omitempty"`
+	// From is the source step id.
+	From string `json:"from" yaml:"from"`
+	// To is the destination step id.
+	To string `json:"to" yaml:"to"`
+	// When is an optional CEL guard; empty means true.
+	When string `json:"when,omitempty" yaml:"when,omitempty"`
+	// Priority orders guards ascending (lower runs first).
+	Priority int `json:"priority,omitempty" yaml:"priority,omitempty"`
 }
 
 type WorkflowDefinition struct {
-	SchemaVersion   string       `json:"schemaVersion" yaml:"schemaVersion"`
-	ID              string       `json:"id" yaml:"id"`
-	Version         string       `json:"version" yaml:"version"`
-	Title           string       `json:"title,omitempty" yaml:"title,omitempty"`
-	Description     string       `json:"description,omitempty" yaml:"description,omitempty"`
-	InitialStepID   string       `json:"initialStepId" yaml:"initialStepId"`
-	TerminalStepIDs []string     `json:"terminalStepIds" yaml:"terminalStepIds"`
-	Steps           []Step       `json:"steps" yaml:"steps"`
-	Transitions     []Transition `json:"transitions" yaml:"transitions"`
+	// SchemaVersion is the workflow schema version (for example "0.1").
+	SchemaVersion string `json:"schemaVersion" yaml:"schemaVersion"`
+	// ID identifies the workflow across versions.
+	ID string `json:"id" yaml:"id"`
+	// Version is the workflow revision string stored on RunRecord.
+	Version string `json:"version" yaml:"version"`
+	// Title is optional display text.
+	Title string `json:"title,omitempty" yaml:"title,omitempty"`
+	// Description is optional documentation.
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	// InitialStepID is where new instances start.
+	InitialStepID string `json:"initialStepId" yaml:"initialStepId"`
+	// TerminalStepIDs lists end steps that may complete a run.
+	TerminalStepIDs []string `json:"terminalStepIds" yaml:"terminalStepIds"`
+	// Steps is the workflow graph nodes.
+	Steps []Step `json:"steps" yaml:"steps"`
+	// Transitions is the workflow graph edges.
+	Transitions []Transition `json:"transitions" yaml:"transitions"`
 }
 
 func (k *StepKind) UnmarshalYAML(n *yaml.Node) error {

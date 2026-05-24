@@ -1,32 +1,24 @@
 // Package engine is the stable low-level API for executing workflow definitions.
 //
-// Most applications should start with pkg/maestro:
+// Most applications should start with [github.com/justinush/maestro/pkg/maestro]:
 //
 //	maestro.Load -> Runtime.NewInstance -> RunUntilBlocked -> SubmitInput
 //
-// Use pkg/engine when you need direct control over Options, action registries,
-// or Snapshost restore without the maestro.Runtime facade.
+// Use pkg/engine when you need direct control over [Options], action registries,
+// or [Snapshot] restore without the maestro.Runtime facade.
 //
-// Typical control flow: branch on RunResult.Status and SubmitInputResult.Status.
-// Err is set only when status is RunFailed or SubmitFailed.
+// Typical control flow: branch on [RunResult].Status and [SubmitInputResult].Status.
+// Err is set only when status is [RunFailed] or [SubmitFailed].
 //
 //	NewInstance
-//	    |
-//	    v
-//	RunUntilBlocked
-//	    |
-//	    |-- RunCompleted -----------------------------> done
-//	    |-- RunFailed (inspect Err) ------------------> done
+//	    -> RunUntilBlocked
+//	    |-- RunCompleted -> done
+//	    |-- RunFailed (inspect Err) -> done
 //	    |-- RunBlocked
-//	            |
-//	            v
-//	         SubmitInput
-//	            |
-//	            |-- SubmitFailed (inspect Err) -------> done
+//	            -> SubmitInput
+//	            |-- SubmitFailed (inspect Err) -> done
 //	            |-- SubmitAdvanced or SubmitStayOnStep
-//	                    |
-//	                    v
-//	                 RunUntilBlocked (repeat)
+//	                    -> RunUntilBlocked (repeat)
 package engine
 
 import (
@@ -37,80 +29,38 @@ import (
 	"github.com/justinush/maestro/pkg/definition"
 )
 
-type (
-	Instance             = iengine.Instance
-	Options              = iengine.Options
-	Registry             = iengine.Registry
-	ActionContext        = iengine.ActionContext
-	ActionRunner         = iengine.ActionRunner
-	Event                = iengine.Event
-	EventType            = iengine.EventType
-	InputValidationError = iengine.InputValidationError
-	UnknownStepError     = iengine.UnknownStepError
-	Snapshot             = iengine.Snapshot
-	RunStatus            = iengine.RunStatus
-	RunResult            = iengine.RunResult
-	SubmitInputStatus    = iengine.SubmitInputStatus
-	SubmitInputResult    = iengine.SubmitInputResult
-)
-
-const (
-	EventStepEntered     EventType = iengine.EventStepEntered
-	EventInputAccepted   EventType = iengine.EventInputAccepted
-	EventActionRan       EventType = iengine.EventActionRan
-	EventTransitionGuard EventType = iengine.EventTransitionGuard
-	EventTransitionTaken EventType = iengine.EventTransitionTaken
-	EventBlocked         EventType = iengine.EventBlocked
-	EventCompleted       EventType = iengine.EventCompleted
-)
-
-const (
-	RunBlocked   RunStatus = iengine.RunBlocked
-	RunCompleted RunStatus = iengine.RunCompleted
-	RunFailed    RunStatus = iengine.RunFailed
-)
-
-const (
-	SubmitStayOnStep SubmitInputStatus = iengine.SubmitStayOnStep
-	SubmitAdvanced   SubmitInputStatus = iengine.SubmitAdvanced
-	SubmitFailed     SubmitInputStatus = iengine.SubmitFailed
-)
-
-var (
-	ErrNilDefinition        = iengine.ErrNilDefinition
-	ErrEmptyInitialStepID   = iengine.ErrEmptyInitialStepID
-	ErrInitialStepUnknown   = iengine.ErrInitialStepUnknown
-	ErrEmptyStepID          = iengine.ErrEmptyStepID
-	ErrEmptyStepKind        = iengine.ErrEmptyStepKind
-	ErrDuplicateStepID      = iengine.ErrDuplicateStepID
-	ErrNoMatchingTransition = iengine.ErrNoMatchingTransition
-	ErrUnknownActionType    = iengine.ErrUnknownActionType
-	ErrCELGuard             = iengine.ErrCELGuard
-)
-
 // NewInstance starts execution at def.InitialStepID. def must be non-nil.
 func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, error) {
-	return iengine.NewInstance(def, opts)
+	in, err := iengine.NewInstance(def, opts.toInternal())
+	if err != nil {
+		return nil, err
+	}
+	return &Instance{Instance: in}, nil
 }
 
 // NewInstanceFromSnapshot restores execution state from snap using the same workflow definition as before.
 func NewInstanceFromSnapshot(def *definition.WorkflowDefinition, snap Snapshot, opts Options) (*Instance, error) {
-	return iengine.NewInstanceFromSnapshot(def, snap, opts)
+	in, err := iengine.NewInstanceFromSnapshot(def, snap, opts.toInternal())
+	if err != nil {
+		return nil, err
+	}
+	return &Instance{Instance: in}, nil
 }
 
 // NewRegistry creates an empty action registry.
 func NewRegistry() *Registry {
-	return iengine.NewRegistry()
+	return &Registry{Registry: iengine.NewRegistry()}
 }
 
 // DefaultRegistry includes the built-in "stub" runner.
 func DefaultRegistry() *Registry {
-	return iengine.DefaultRegistry()
+	return &Registry{Registry: iengine.DefaultRegistry()}
 }
 
-// RegistryWithHTTP returns DefaultRegistry plus "http".
+// RegistryWithHTTP returns DefaultRegistry plus an "http" runner using client.
+// Pass your own *http.Client in production; the maestro simulate CLI uses a private long-timeout client.
 func RegistryWithHTTP(client *http.Client) *Registry {
-	return iengine.RegistryWithHTTP(client)
+	return &Registry{Registry: iengine.RegistryWithHTTP(client)}
 }
 
 // NewStubRunner returns the built-in stub ActionRunner (usually accessed via DefaultRegistry).
@@ -131,7 +81,7 @@ func AsInputValidationError(err error) (*InputValidationError, bool) {
 	return nil, false
 }
 
-// AsUnknownStepError reports whether err unwraps to *UnknownStepError.
+// AsUnknownStepError reports whether err unwraps to *UnknownStepError (e.g. from Instance.StepByID).
 func AsUnknownStepError(err error) (*UnknownStepError, bool) {
 	if v, ok := errors.AsType[*UnknownStepError](err); ok {
 		return v, true

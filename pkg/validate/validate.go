@@ -1,3 +1,8 @@
+// Package validate checks workflow definitions against JSON Schema and Maestro rules.
+//
+// Use [WorkflowFile] for the same checks as the maestro validate CLI, or
+// [WorkflowDefinition] after decoding with [github.com/justinush/maestro/pkg/definition].
+// [github.com/justinush/maestro/pkg/maestro].Load* runs validation automatically.
 package validate
 
 import (
