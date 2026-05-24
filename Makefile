@@ -81,6 +81,15 @@ lint: install-golangci-lint
 lint-fix: install-golangci-lint
 	"$(GOLANGCI_LINT)" run --fix
 
+.PHONY: doc-check
+doc-check:
+	$(GO) test ./pkg/...
+	@$(GO) doc ./pkg/engine Instance | grep -q 'func (in \*Instance) RunUntilBlocked'
+	@$(GO) doc ./pkg/engine Instance | grep -q 'func (in \*Instance) SubmitInput'
+	@$(GO) doc ./pkg/engine Registry | grep -q 'func (r \*Registry) Register('
+	@$(GO) doc ./pkg/engine Registry | grep -q 'func (r \*Registry) Lookup'
+	@$(GO) doc ./pkg/maestro Runtime | grep -q 'type Runtime struct'
+
 .PHONY: check
 check: fmt-check lint vet test
 
@@ -91,7 +100,7 @@ ci: verify check smoke build
 ci-action: verify fmt-check vet test smoke build
 
 .PHONY: release-check
-release-check: verify fmt-check vet test smoke
+release-check: verify fmt-check vet test smoke doc-check
 
 ##@ Test
 

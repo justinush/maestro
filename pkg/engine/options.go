@@ -20,7 +20,7 @@ type Options struct {
 func (o Options) toInternal() iengine.Options {
 	var reg *iengine.Registry
 	if o.ActionRegistry != nil {
-		reg = o.ActionRegistry.Registry
+		reg = o.ActionRegistry.impl
 	}
 	return iengine.Options{
 		RunID:            o.RunID,

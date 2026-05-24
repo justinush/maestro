@@ -35,7 +35,7 @@ func NewInstance(def *definition.WorkflowDefinition, opts Options) (*Instance, e
 	if err != nil {
 		return nil, err
 	}
-	return &Instance{Instance: in}, nil
+	return &Instance{impl: in}, nil
 }
 
 // NewInstanceFromSnapshot restores execution state from snap using the same workflow definition as before.
@@ -44,23 +44,23 @@ func NewInstanceFromSnapshot(def *definition.WorkflowDefinition, snap Snapshot, 
 	if err != nil {
 		return nil, err
 	}
-	return &Instance{Instance: in}, nil
+	return &Instance{impl: in}, nil
 }
 
 // NewRegistry creates an empty action registry.
 func NewRegistry() *Registry {
-	return &Registry{Registry: iengine.NewRegistry()}
+	return &Registry{impl: iengine.NewRegistry()}
 }
 
 // DefaultRegistry includes the built-in "stub" runner.
 func DefaultRegistry() *Registry {
-	return &Registry{Registry: iengine.DefaultRegistry()}
+	return &Registry{impl: iengine.DefaultRegistry()}
 }
 
 // RegistryWithHTTP returns DefaultRegistry plus an "http" runner using client.
 // Pass your own *http.Client in production; the maestro simulate CLI uses a private long-timeout client.
 func RegistryWithHTTP(client *http.Client) *Registry {
-	return &Registry{Registry: iengine.RegistryWithHTTP(client)}
+	return &Registry{impl: iengine.RegistryWithHTTP(client)}
 }
 
 // NewStubRunner returns the built-in stub ActionRunner (usually accessed via DefaultRegistry).

@@ -43,13 +43,7 @@ make ci-action
 
 That is `verify`, `fmt-check`, `vet`, `test`, `smoke`, and `build` — no `make lint` in that job. The same workflow job then runs **`make test-race`**; if race fails, that job fails.
 
-Before tagging a release, run locally (or rely on the release workflow):
-
-```bash
-make release-check
-```
-
-That is `verify`, `fmt-check`, `vet`, `test`, and `smoke`. The release workflow also runs golangci-lint, then builds the versioned binary.
+Maintainers: before a version tag on `main`, run `make release-check` (`verify`, `fmt-check`, `vet`, `test`, `smoke`, `doc-check`). The GitHub release workflow on version tags also runs golangci-lint and builds the binary.
 
 Individual targets:
 
@@ -57,6 +51,7 @@ Individual targets:
 make test          # unit tests (-count=1, 10m timeout)
 make test-race     # unit tests with -race
 make smoke         # CLI validate/simulate scenarios
+make doc-check     # pkg examples + go doc sanity for public APIs
 make lint          # golangci-lint
 make fmt           # gofumpt format
 make fmt-check     # fail if gofumpt would change files
@@ -162,6 +157,8 @@ Maestro currently prefers:
 - small surface area
 
 over highly abstracted APIs.
+
+When changing exported APIs in `pkg/`, update godoc comments and run `make doc-check`. Add or adjust `Example*` tests in `pkg/*_test.go` when the canonical usage path changes.
 
 ---
 
