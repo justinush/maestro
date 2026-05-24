@@ -89,6 +89,8 @@ doc-check:
 	@$(GO) doc ./pkg/engine Registry | grep -q 'func (r \*Registry) Register('
 	@$(GO) doc ./pkg/engine Registry | grep -q 'func (r \*Registry) Lookup'
 	@$(GO) doc ./pkg/maestro Runtime | grep -q 'type Runtime struct'
+	@$(GO) doc ./pkg/validate Options | grep -q 'SchemaPath'
+	@$(GO) doc ./pkg/definition WorkflowDefinition | grep -q 'InitialStepID'
 
 .PHONY: check
 check: fmt-check lint vet test

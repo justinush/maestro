@@ -10,15 +10,12 @@ import (
 	"github.com/justinush/maestro/pkg/definition"
 )
 
-// Options configures validation (JSON Schema source, verbose diagnostics, etc.).
-type Options = ivalidate.Options
-
 // WorkflowFile loads path and runs the same validation as the maestro validate CLI.
 func WorkflowFile(path string, opts Options) error {
-	return ivalidate.Workflow(path, opts)
+	return ivalidate.Workflow(path, opts.toInternal())
 }
 
 // WorkflowDefinition validates def in memory (graph, CEL, stubs, input schemas, etc.).
 func WorkflowDefinition(def *definition.WorkflowDefinition, opts Options) error {
-	return ivalidate.WorkflowDefinition(def, opts)
+	return ivalidate.WorkflowDefinition(def, opts.toInternal())
 }
