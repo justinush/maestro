@@ -1,4 +1,4 @@
-// Package engine is the stable low-level API for executing workflow definitions.
+// Package engine provides the low-level API for executing workflow definitions.
 //
 // Most applications should start with [github.com/justinush/maestro/pkg/maestro]:
 //

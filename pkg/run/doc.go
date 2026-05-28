@@ -1,6 +1,8 @@
 // Package run provides persistence types for workflow runs.
 //
-// Store [RunRecord] values with [Store] (for example [MemoryStore] in tests).
+// Use [Store] to persist [RunRecord] values. [MemoryStore] is intended for tests,
+// demos, and local examples (it is not durable).
+//
 // Build records from a live instance with [RecordFromInstance], then restore with
 // [github.com/justinush/maestro/pkg/maestro].Runtime.RestoreInstance (preferred) or
 // [InstanceFromRecord] for custom [Store] integrations.
