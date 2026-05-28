@@ -7,6 +7,10 @@ import (
 
 // Instance is a single workflow run. Create one with [NewInstance] or [NewInstanceFromSnapshot].
 //
+// Instance is not safe for concurrent mutation. If multiple goroutines need to access the same
+// Instance, coordinate access externally (for example with a mutex) and avoid calling methods that
+// mutate state concurrently (RunUntilBlocked, SubmitInput).
+//
 // Advance execution with [Instance.RunUntilBlocked] and [Instance.SubmitInput].
 // Inspect [RunResult] and [SubmitInputResult] status values before reading Err.
 type Instance struct {

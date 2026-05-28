@@ -24,6 +24,9 @@ import (
 )
 
 // Runtime is a validated workflow definition ready to instantiate with Runtime.NewInstance.
+//
+// Runtime is safe to reuse concurrently after it is created. Callers must not mutate the
+// definition returned by Runtime.Definition.
 type Runtime struct {
 	def *definition.WorkflowDefinition
 }
