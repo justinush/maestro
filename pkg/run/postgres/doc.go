@@ -3,7 +3,7 @@
 // Workflow run state is stored in the workflow_runs table (JSONB column state).
 // Canonical DDL lives in schema.sql ([SchemaDDL] returns the same bytes).
 //
-// The table and column names are part of the v0.x persistence contract for this adapter.
+// The table and column names are intended to remain stable across v0.x releases for this adapter.
 //
 // # Usage
 //
@@ -12,7 +12,7 @@
 //	store := postgres.NewStore(pool)
 //
 // [Store] implements [run.Store]: Create, Get, Save with optimistic locking via revision.
-// Implementations are safe for concurrent use when backed by a shared *pgxpool.Pool.
+// Store is safe for concurrent use when backed by a shared *pgxpool.Pool.
 //
 // # Schema management
 //

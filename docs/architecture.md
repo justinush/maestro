@@ -280,7 +280,7 @@ Continue execution with `SubmitInput` and `RunUntilBlocked` as on the first requ
 
 | Piece | Role |
 |-------|------|
-| `schema.sql` / `SchemaDDL` | Canonical `workflow_runs` DDL (v0.x contract) |
+| `schema.sql` / `SchemaDDL` | Canonical `workflow_runs` DDL (stable across v0.x, intended) |
 | `ApplySchema` | Optional idempotent apply — examples, tests, local dev |
 | `NewStore(pool)` | `Create` / `Get` / `Save` with JSONB state and revision-based optimistic locking |
 | `workflow_runs` table | `run_id` PK, `revision`, `state` JSONB |
@@ -303,7 +303,7 @@ store := postgres.NewStore(pool)
 
 The adapter persists **workflow runs only**. Application tables (users, applicants, documents, etc.) remain your responsibility. Maestro does not coordinate a single database transaction across `run.Store` and your business tables in v0.1; production services should define their own transaction boundaries.
 
-Table and column names in `pkg/run/postgres/schema.sql` are part of the v0.x adapter contract alongside `RunRecord` JSON field names.
+Table and column names in `pkg/run/postgres/schema.sql` are intended to remain stable across v0.x releases, alongside `RunRecord` JSON field names.
 
 ---
 

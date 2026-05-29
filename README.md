@@ -260,7 +260,7 @@ if err != nil {
 store := postgres.NewStore(pool) // implements run.Store
 ```
 
-**Schema:** `pkg/run/postgres/schema.sql` defines `workflow_runs` (canonical for v0.x). Either:
+**Schema:** `pkg/run/postgres/schema.sql` defines `workflow_runs` (intended stable across v0.x). Either:
 
 - **`postgres.ApplySchema`** — optional, idempotent helper for examples, tests, and local dev.
 - **Your migration tool** — copy `schema.sql` or use `postgres.SchemaDDL()` in goose, golang-migrate, Atlas, etc.

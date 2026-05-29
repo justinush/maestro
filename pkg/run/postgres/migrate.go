@@ -14,7 +14,7 @@ var schemaSQL string
 // SchemaDDL returns the canonical workflow_runs DDL (same as schema.sql).
 //
 // Use this when applying the schema with your own migration tool (goose, golang-migrate, Atlas, etc.).
-// Table and column names are part of the v0.x adapter contract.
+// Table and column names are intended to remain stable across v0.x releases.
 func SchemaDDL() string {
 	return schemaSQL
 }
