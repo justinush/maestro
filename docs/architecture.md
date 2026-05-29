@@ -80,6 +80,8 @@ RecordFromInstance -> Store.Create / Save
 Store.Get -> rt.RestoreInstance   (preferred in apps)
 ```
 
+**Production store:** `pkg/run/postgres` (`ApplySchema`, `NewStore`) implements `run.Store` with Postgres + JSONB. `run.NewMemoryStore` is for tests and demos only.
+
 **Advanced:** `pkg/engine` for direct `Options`, registries, and `NewInstanceFromSnapshot`; `run.InstanceFromRecord` for store-layer restore without a `Runtime`.
 
 **HTTP actions:** pass your own `*http.Client` to `engine.RegistryWithHTTP`. The `maestro simulate` CLI uses a private long-timeout client (not exported from `pkg/engine`).
@@ -271,6 +273,29 @@ in, err := rt.RestoreInstance(rec, maestro.InstanceOptions{
 `rt.RestoreInstance` is the preferred application API. `run.InstanceFromRecord` is the lower-level equivalent when implementing or calling `Store` directly.
 
 Continue execution with `SubmitInput` and `RunUntilBlocked` as on the first request.
+
+## Postgres adapter
+
+`pkg/run/postgres` is the reference production implementation of `run.Store`.
+
+| Piece | Role |
+|-------|------|
+| `schema.sql` / `ApplySchema` | Creates `workflow_runs` (idempotent; run once per environment) |
+| `NewStore(pool)` | `Create` / `Get` / `Save` with JSONB state and revision-based optimistic locking |
+| `workflow_runs` table | `run_id` PK, `revision`, `state` JSONB |
+
+Setup:
+
+```go
+pool, err := pgxpool.New(ctx, databaseURL)
+if err != nil { ... }
+if err := postgres.ApplySchema(ctx, pool); err != nil { ... }
+store := postgres.NewStore(pool)
+```
+
+The adapter persists **workflow runs only**. Application tables (users, applicants, documents, etc.) remain your responsibility. Maestro does not coordinate a single database transaction across `run.Store` and your business tables in v0.1; production services should define their own transaction boundaries.
+
+Table and column names in `pkg/run/postgres/schema.sql` are part of the v0.x adapter contract alongside `RunRecord` JSON field names.
 
 ---
 

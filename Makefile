@@ -12,6 +12,9 @@ MAESTRO ?= $(DIST_DIR)/$(BIN_NAME)
 
 TEST_TIMEOUT ?= 10m
 
+MAESTRO_TEST_DATABASE_URL ?= postgres://maestro:maestro@localhost:5434/maestro_test?sslmode=disable
+POSTGRES_TEST_CONTAINER ?= maestro-pg-test
+
 GO_INSTALL_BIN := $(shell $(GO) env GOBIN)
 ifeq ($(GO_INSTALL_BIN),)
 GO_INSTALL_BIN := $(shell $(GO) env GOPATH)/bin
@@ -113,6 +116,43 @@ test:
 .PHONY: test-race
 test-race:
 	$(GO) test -count=1 -race -timeout=$(TEST_TIMEOUT) ./...
+
+##@ Postgres integration
+
+.PHONY: postgres-docker-up
+postgres-docker-up:
+	@if docker ps --format '{{.Names}}' | grep -qx '$(POSTGRES_TEST_CONTAINER)'; then \
+		echo "Postgres test container already running ($(POSTGRES_TEST_CONTAINER))"; \
+	elif docker ps -a --format '{{.Names}}' | grep -qx '$(POSTGRES_TEST_CONTAINER)'; then \
+		echo "Starting existing container $(POSTGRES_TEST_CONTAINER)..."; \
+		docker start $(POSTGRES_TEST_CONTAINER); \
+	else \
+		echo "Creating Postgres test container $(POSTGRES_TEST_CONTAINER)..."; \
+		docker run -d --name $(POSTGRES_TEST_CONTAINER) \
+			-e POSTGRES_USER=maestro -e POSTGRES_PASSWORD=maestro -e POSTGRES_DB=maestro_test \
+			-p 5434:5432 postgres:16; \
+	fi
+
+.PHONY: postgres-wait
+postgres-wait:
+	@echo "Waiting for Postgres ($(POSTGRES_TEST_CONTAINER))..."
+	@for i in $$(seq 1 30); do \
+		docker exec $(POSTGRES_TEST_CONTAINER) pg_isready -U maestro -d maestro_test -q 2>/dev/null && exit 0; \
+		sleep 1; \
+	done; \
+	echo "Postgres did not become ready in 30s" >&2; exit 1
+
+.PHONY: postgres-docker-down
+postgres-docker-down:
+	docker rm -f $(POSTGRES_TEST_CONTAINER) 2>/dev/null || true
+
+.PHONY: postgres-docker-reset
+postgres-docker-reset: postgres-docker-down postgres-docker-up postgres-wait
+
+.PHONY: test-postgres
+test-postgres: postgres-docker-up postgres-wait
+	MAESTRO_TEST_DATABASE_URL="$(MAESTRO_TEST_DATABASE_URL)" \
+		$(GO) test -count=1 -timeout=$(TEST_TIMEOUT) ./pkg/run/postgres/...
 
 ##@ Build
 

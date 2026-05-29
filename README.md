@@ -240,6 +240,30 @@ in, err := rt.RestoreInstance(rec, maestro.InstanceOptions{})
 
 See [architecture notes](./docs/architecture.md#persistence-model) for details.
 
+#### Postgres store
+
+For durable backends, use the official Postgres adapter in `pkg/run/postgres`:
+
+```go
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justinush/maestro/pkg/run/postgres"
+)
+
+pool, err := pgxpool.New(ctx, databaseURL)
+if err != nil {
+	return err
+}
+if err := postgres.ApplySchema(ctx, pool); err != nil {
+	return err
+}
+store := postgres.NewStore(pool) // implements run.Store
+```
+
+Call `ApplySchema` once per database environment (creates the `workflow_runs` table). Use [`run.NewMemoryStore`](./pkg/run/memory.go) for tests and demos only.
+
 ### Actions
 
 Workflow steps can execute external logic through registered runners.
@@ -258,6 +282,7 @@ reg := engine.RegistryWithHTTP(client)
 | `pkg/maestro` | **canonical** embedding API (start here) |
 | `pkg/engine` | workflow runtime (advanced / custom registries) |
 | `pkg/run` | persistence types and `Store` |
+| `pkg/run/postgres` | Postgres `Store` adapter (JSONB, optimistic locking) |
 | `pkg/definition` | workflow schema + decoding |
 | `pkg/validate` | workflow validation |
 | `examples/demos` | focused learning examples |
@@ -287,7 +312,6 @@ Current focus areas:
 
 Planned areas:
 
-- Postgres store adapter
 - async callback/webhook flows
 - retry policies
 - workflow versioning semantics
