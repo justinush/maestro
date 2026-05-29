@@ -80,7 +80,7 @@ RecordFromInstance -> Store.Create / Save
 Store.Get -> rt.RestoreInstance   (preferred in apps)
 ```
 
-**Production store:** `pkg/run/postgres` (`ApplySchema`, `NewStore`) implements `run.Store` with Postgres + JSONB. `run.NewMemoryStore` is for tests and demos only.
+**Postgres store:** `pkg/run/postgres` (`NewStore`, `SchemaDDL`) implements `run.Store` with Postgres + JSONB. Optional `ApplySchema` for examples/tests; production apps typically apply the same DDL via their migration tool. `run.NewMemoryStore` is for tests and demos only.
 
 **Advanced:** `pkg/engine` for direct `Options`, registries, and `NewInstanceFromSnapshot`; `run.InstanceFromRecord` for store-layer restore without a `Runtime`.
 
@@ -276,22 +276,30 @@ Continue execution with `SubmitInput` and `RunUntilBlocked` as on the first requ
 
 ## Postgres adapter
 
-`pkg/run/postgres` is the reference production implementation of `run.Store`.
+`pkg/run/postgres` is the reference implementation of `run.Store`.
 
 | Piece | Role |
 |-------|------|
-| `schema.sql` / `ApplySchema` | Creates `workflow_runs` (idempotent; run once per environment) |
+| `schema.sql` / `SchemaDDL` | Canonical `workflow_runs` DDL (v0.x contract) |
+| `ApplySchema` | Optional idempotent apply — examples, tests, local dev |
 | `NewStore(pool)` | `Create` / `Get` / `Save` with JSONB state and revision-based optimistic locking |
 | `workflow_runs` table | `run_id` PK, `revision`, `state` JSONB |
 
-Setup:
+Setup (schema must exist before `NewStore`):
 
 ```go
 pool, err := pgxpool.New(ctx, databaseURL)
 if err != nil { ... }
-if err := postgres.ApplySchema(ctx, pool); err != nil { ... }
+
+// Option A (optional): quick setup for demos/tests
+// err = postgres.ApplySchema(ctx, pool)
+
+// Option B (typical in production): migrations from postgres.SchemaDDL() or schema.sql
+
 store := postgres.NewStore(pool)
 ```
+
+**Schema management:** `ApplySchema` is a convenience, not a requirement. Production services usually version DDL with their own migration tool and treat `schema.sql` as the source of truth.
 
 The adapter persists **workflow runs only**. Application tables (users, applicants, documents, etc.) remain your responsibility. Maestro does not coordinate a single database transaction across `run.Store` and your business tables in v0.1; production services should define their own transaction boundaries.
 

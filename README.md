@@ -256,13 +256,16 @@ pool, err := pgxpool.New(ctx, databaseURL)
 if err != nil {
 	return err
 }
-if err := postgres.ApplySchema(ctx, pool); err != nil {
-	return err
-}
+// Ensure workflow_runs exists (see schema note below).
 store := postgres.NewStore(pool) // implements run.Store
 ```
 
-Call `ApplySchema` once per database environment (creates the `workflow_runs` table). Use [`run.NewMemoryStore`](./pkg/run/memory.go) for tests and demos only.
+**Schema:** `pkg/run/postgres/schema.sql` defines `workflow_runs` (canonical for v0.x). Either:
+
+- **`postgres.ApplySchema`** — optional, idempotent helper for examples, tests, and local dev.
+- **Your migration tool** — copy `schema.sql` or use `postgres.SchemaDDL()` in goose, golang-migrate, Atlas, etc.
+
+Production apps usually prefer the second option. [`run.NewMemoryStore`](./pkg/run/memory.go) remains for in-process tests and demos only.
 
 ### Actions
 

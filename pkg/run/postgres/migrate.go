@@ -11,9 +11,20 @@ import (
 //go:embed schema.sql
 var schemaSQL string
 
+// SchemaDDL returns the canonical workflow_runs DDL (same as schema.sql).
+//
+// Use this when applying the schema with your own migration tool (goose, golang-migrate, Atlas, etc.).
+// Table and column names are part of the v0.x adapter contract.
+func SchemaDDL() string {
+	return schemaSQL
+}
+
 // ApplySchema creates the workflow_runs table and indexes (idempotent).
 //
-// Call once per database environment before using [Store].
+// Optional convenience for examples, local development, and integration tests.
+// Production applications may prefer [SchemaDDL] with their own migration pipeline instead.
+//
+// [Store] requires the schema to exist before use; how you apply it is up to the embedder.
 func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
 	if pool == nil {
 		return fmt.Errorf("postgres: nil pool")

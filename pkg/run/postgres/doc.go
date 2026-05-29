@@ -1,7 +1,7 @@
 // Package postgres provides a Postgres implementation of [github.com/justinush/maestro/pkg/run.Store].
 //
 // Workflow run state is stored in the workflow_runs table (JSONB column state).
-// Table DDL is defined in schema.sql and applied with [ApplySchema].
+// Canonical DDL lives in schema.sql ([SchemaDDL] returns the same bytes).
 //
 // The table and column names are part of the v0.x persistence contract for this adapter.
 //
@@ -9,11 +9,17 @@
 //
 //	pool, err := pgxpool.New(ctx, databaseURL)
 //	if err != nil { ... }
-//	if err := postgres.ApplySchema(ctx, pool); err != nil { ... }
 //	store := postgres.NewStore(pool)
 //
-// store implements [run.Store]: Create, Get, Save with optimistic locking via revision.
+// [Store] implements [run.Store]: Create, Get, Save with optimistic locking via revision.
 // Implementations are safe for concurrent use when backed by a shared *pgxpool.Pool.
+//
+// # Schema management
+//
+// [Store] expects workflow_runs to exist. Two supported approaches:
+//
+//   - [ApplySchema] - optional helper for examples, tests, and quick local setup (idempotent).
+//   - Your migration tool - copy schema.sql or use [SchemaDDL] in goose / golang-migrate / Atlas / etc.
 //
 // # Scope
 //
