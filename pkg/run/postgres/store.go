@@ -21,7 +21,7 @@ var _ run.Store = (*Store)(nil)
 
 // NewStore returns a Store backed by pool.
 //
-// The caller owns pool lifecycle. Apply [ApplySchema] before first use.
+// The caller owns pool lifecycle. workflow_runs must exist before use (see ApplySchema or SchemaDDL).
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }

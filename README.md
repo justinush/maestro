@@ -1,6 +1,6 @@
 <div align="center">
 
-# Maestro—embedded workflow runtime
+# Maestro - embedded workflow runtime
 
 Human-in-the-loop workflows for KYC and onboarding.
 
