@@ -2,7 +2,7 @@
 
 Rough direction for Maestro. No dates — just what we're thinking about.
 
-See [CHANGELOG.md](../CHANGELOG.md) for what's already shipped.
+See the [changelog](../CHANGELOG.md) for what's already shipped.
 
 ## In 0.1.0 (done)
 
