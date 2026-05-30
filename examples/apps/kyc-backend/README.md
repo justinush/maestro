@@ -167,7 +167,7 @@ approved
 | File | Purpose |
 |---|---|
 | `main.go` | HTTP server entrypoint |
-| `handlers.go` | REST routes + strict JSON decoding |
+| `handler.go` | REST routes + strict JSON decoding |
 | `service.go` | workflow lifecycle orchestration |
 | `status.go` | UI-facing response mapping |
 | `errors.go` | sentinel app errors |
@@ -192,9 +192,9 @@ approved
 
 In production:
 
-- replace `MemoryStore` with a real database
+- use `pkg/run/postgres` for `run.Store` (`NewStore`, `SchemaDDL`, or optional `ApplySchema`)
 - replace the fake vendor with HTTP actions (`examples/demos/http-runner`)
-- add auth, retries, observability, and async callbacks
+- add workflow registries and versioning, auth, retries, observability, and async callbacks
 
 ---
 

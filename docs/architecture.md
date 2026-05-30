@@ -80,7 +80,7 @@ RecordFromInstance -> Store.Create / Save
 Store.Get -> rt.RestoreInstance   (preferred in apps)
 ```
 
-**Postgres store:** `pkg/run/postgres` (`NewStore`, `SchemaDDL`) implements `run.Store` with Postgres + JSONB. Optional `ApplySchema` for examples/tests; production apps typically apply the same DDL via their migration tool. `run.NewMemoryStore` is for tests and demos only.
+**Postgres store:** `pkg/run/postgres` (`NewStore`, `SchemaDDL`) implements `run.Store` with Postgres + JSONB. Optional `ApplySchema` for demos and integration tests; production apps typically apply the same DDL via their migration tool. `run.NewMemoryStore` is for tests and demos only.
 
 **Advanced:** `pkg/engine` for direct `Options`, registries, and `NewInstanceFromSnapshot`; `run.InstanceFromRecord` for store-layer restore without a `Runtime`.
 
@@ -250,7 +250,7 @@ Your application persists:
 | `Store.Save` | Succeeds only if `rec.Revision` matches; then revision increments |
 | Concurrent `Save` | Loser gets `run.ErrRevisionConflict` |
 
-JSON tags on `RunRecord` and `Snapshot` (`runId`, `revision`, `currentStepId`, …) are part of the v0.x persistence contract.
+JSON tags on `RunRecord` and `Snapshot` (`runId`, `revision`, `currentStepId`, …) are intended to remain stable across v0.x releases.
 
 ## Save and restore
 
@@ -281,7 +281,7 @@ Continue execution with `SubmitInput` and `RunUntilBlocked` as on the first requ
 | Piece | Role |
 |-------|------|
 | `schema.sql` / `SchemaDDL` | Canonical `workflow_runs` DDL (stable across v0.x, intended) |
-| `ApplySchema` | Optional idempotent apply — examples, tests, local dev |
+| `ApplySchema` | Optional idempotent apply — demos, integration tests, local dev |
 | `NewStore(pool)` | `Create` / `Get` / `Save` with JSONB state and revision-based optimistic locking |
 | `workflow_runs` table | `run_id` PK, `revision`, `state` JSONB |
 
@@ -357,6 +357,7 @@ Treat as **stable for v0.x** (breaking changes -> v1):
 - `RunRecord` / `Snapshot` / `Event` JSON field names
 - `RunStatus` and `SubmitInputStatus` enum values
 - Sentinel errors such as `run.ErrNotFound`, `run.ErrRevisionConflict`
+- `workflow_runs` table/column names in `pkg/run/postgres` (intended stable across v0.x)
 
 `pkg/maestro` is the supported embedding surface. Symbols in `pkg/engine` and `pkg/run` remain public for advanced use but may gain helpers without a major bump; semantic changes to persistence JSON or status enums will not.
 
@@ -388,7 +389,9 @@ This keeps orchestration close to:
 
 # Current Scope
 
-Maestro currently focuses on:
+**v0.1.0** ships the embedded runtime, `run.Store` (memory + Postgres), and CLI tooling. See [roadmap](./roadmap.md) for what's next.
+
+Maestro focuses on:
 
 - human-in-the-loop workflows
 - backend orchestration
@@ -398,7 +401,7 @@ Maestro currently focuses on:
 
 The examples in this repository demonstrate:
 - minimal embedding
-- persistence flows
+- persistence flows (in-memory; Postgres lives in `pkg/run/postgres`)
 - HTTP integrations
 - realistic KYC orchestration
 

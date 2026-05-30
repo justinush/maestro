@@ -58,7 +58,7 @@ If you point at a different workflow, the step or outcome may differ.
 | File | Purpose |
 |---|---|
 | `main.go` | minimal embedding lifecycle |
-| `workflow-v0-minimal.yaml` | sample workflow definition |
+| `examples/workflows/workflow-v0-minimal.yaml` | sample workflow (passed as CLI arg) |
 
 ---
 

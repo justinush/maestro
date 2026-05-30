@@ -41,7 +41,7 @@ GitHub Actions runs golangci-lint in a separate job; the workflow then runs:
 make ci-action
 ```
 
-That is `verify`, `fmt-check`, `vet`, `test`, `smoke`, and `build` — no `make lint` in that job. The same workflow job then runs **`make test-race`**; if race fails, that job fails.
+That is `verify`, `fmt-check`, `vet`, `test`, `smoke`, and `build` — no `make lint` in that job. The same workflow job then runs **`make test-race`** and Postgres store integration tests (`pkg/run/postgres`); if either fails, that job fails.
 
 Maintainers: before a version tag on `main`, run `make release-check` (`verify`, `fmt-check`, `vet`, `test`, `smoke`, `doc-check`). The GitHub release workflow on version tags also runs golangci-lint and builds the binary.
 
@@ -50,6 +50,7 @@ Individual targets:
 ```bash
 make test          # unit tests (-count=1, 10m timeout)
 make test-race     # unit tests with -race
+make test-postgres # pkg/run/postgres integration tests (starts Docker Postgres locally)
 make smoke         # CLI validate/simulate scenarios
 make doc-check     # pkg examples + go doc sanity for public APIs
 make lint          # golangci-lint
@@ -168,10 +169,10 @@ Discussions and feature ideas are welcome.
 
 Current areas of interest:
 
-- persistence adapters
-- async orchestration
+- workflow registries (multiple definitions in one app)
+- workflow versioning (new YAML vs in-flight runs)
+- async orchestration / callbacks
 - retries and timers
-- workflow versioning
 - observability
 - developer experience improvements
 

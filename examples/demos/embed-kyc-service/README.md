@@ -3,7 +3,7 @@
 Minimal embedded KYC workflow lifecycle with persistence + restore.
 
 <p align="center">
-  <img src="./docs/assets/embed-kyc-service.excalidraw.png" alt="library-basic flow" width="360">
+  <img src="./docs/assets/embed-kyc-service.excalidraw.png" alt="embed-kyc-service flow" width="360">
 </p>
 
 This demo simulates two backend requests sharing the same persisted workflow run.
@@ -83,7 +83,7 @@ This demo roughly maps to:
 | Request 2 | receive user profile form |
 | Workflow store | persist workflow snapshots between requests |
 
-In production, `run.Store` would typically be backed by a database instead of `MemoryStore`.
+In production, use [`pkg/run/postgres`](../../../pkg/run/postgres) for `run.Store` instead of `MemoryStore`.
 
 ---
 

@@ -3,7 +3,7 @@
 Minimal example of calling external services from a Maestro workflow.
 
 <p align="center">
-  <img src="./docs/assets/http-runner.excalidraw.png" alt="library-basic flow" width="960">
+  <img src="./docs/assets/http-runner.excalidraw.png" alt="http-runner flow" width="960">
 </p>
 
 This demo shows a workflow action step calling a mock vendor API through Maestro's HTTP runner.

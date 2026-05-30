@@ -14,6 +14,7 @@ Human-in-the-loop workflows for KYC and onboarding.
 **[Quick Start](#quick-start) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
 **[Examples](#examples) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
 **[Architecture](#architecture) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
+**[Changelog](#changelog) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
 **[Roadmap](#roadmap) &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
 **[Contributing](#contributing)**
 
@@ -51,8 +52,10 @@ Typical use cases:
 Install:
 
 ```bash
-go get github.com/justinush/maestro
+go get github.com/justinush/maestro@v0.1.0
 ```
+
+Pin a release tag in production; `@latest` works for trying the module locally.
 
 Minimal example:
 
@@ -295,37 +298,25 @@ reg := engine.RegistryWithHTTP(client)
 
 ## Project Status
 
-Maestro is currently in early `v0.x` development.
+**v0.1.0** is the first public release. Maestro is still early `v0.x` — APIs may evolve before v1.
 
-The core orchestration APIs are usable today, but some APIs may evolve before `v1` stability.
+See [CHANGELOG.md](./CHANGELOG.md) for release notes and [docs/roadmap.md](./docs/roadmap.md) for what's next.
 
 **Stability for v0.x:** JSON field names on `run.RunRecord`, `engine.Snapshot`, and `engine.Event`, plus `RunStatus` / `SubmitInputStatus` values, are treated as stable. Breaking changes to those shapes will require a major version bump.
 
-Current focus areas:
+---
 
-- embedding experience
-- workflow lifecycle clarity
-- persistence model
-- orchestration ergonomics
-- real-world backend integration
+## Changelog
+
+Release notes: [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
 ## Roadmap
 
-Planned areas:
+Direction and priorities: [docs/roadmap.md](./docs/roadmap.md).
 
-- async callback/webhook flows
-- retry policies
-- workflow versioning semantics
-- improved typed variable access
-- richer execution observability
-
-Not planned yet:
-
-- hosted SaaS
-- distributed runtime cluster
-- visual workflow editor
+Roughly next: workflow registries, versioning, async callbacks, retries/timers, observability.
 
 ---
 
@@ -350,6 +341,8 @@ Contributions, feedback, and discussions are welcome.
 
 Helpful links:
 
+- [changelog](./CHANGELOG.md)
+- [roadmap](./docs/roadmap.md)
 - [examples](./examples)
 - [architecture notes](./docs/architecture.md)
 - [contributing guide](./CONTRIBUTING.md)
