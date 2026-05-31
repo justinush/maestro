@@ -43,7 +43,7 @@ make ci-action
 
 That is `verify`, `fmt-check`, `vet`, `test`, `smoke`, and `build` — no `make lint` in that job. The same workflow job then runs **`make test-race`** and Postgres store integration tests (`pkg/run/postgres`); if either fails, that job fails.
 
-Maintainers: before a version tag on `main`, run `make release-check` (`verify`, `fmt-check`, `vet`, `test`, `smoke`, `doc-check`). The GitHub release workflow on version tags also runs golangci-lint and builds the binary.
+Maintainers: before a version tag on `main`, run `make release-check` (`verify`, `fmt-check`, `vet`, `test`, `smoke`, `doc-check`).
 
 Individual targets:
 
@@ -57,7 +57,25 @@ make lint          # golangci-lint
 make fmt           # gofumpt format
 make fmt-check     # fail if gofumpt would change files
 make lint-fix      # golangci-lint --fix
-make build         # build dist/maestro
+make build         # build dist/maestro (VERSION=dev by default)
+make install VERSION=v0.1.1   # install CLI to GOBIN with correct --version
+make verify-version VERSION=v0.1.1   # build + assert maestro --version matches
+make build-release VERSION=v0.1.1  # cross-compile all release platforms into dist/
+```
+
+### Releasing
+
+Pushing a tag `v*.*.*` triggers [`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+1. `make release-check` and `make verify-version VERSION=<tag>`
+2. Cross-platform archives (linux, darwin, windows) uploaded to GitHub Releases
+3. `SHA256SUMS` for release artifacts
+
+Update [CHANGELOG.md](./CHANGELOG.md) and [README.md](./README.md) install pins before tagging. After the tag is published, smoke-test:
+
+```bash
+go install github.com/justinush/maestro/cmd/maestro@v0.1.1
+maestro --version
 ```
 
 Quick test only:
