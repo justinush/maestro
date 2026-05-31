@@ -49,15 +49,24 @@ Typical use cases:
 
 ## Quick Start
 
-Install:
+### Library (embedding)
 
 ```bash
-go get github.com/justinush/maestro@v0.1.0
+go get github.com/justinush/maestro@v0.1.1
 ```
 
 Pin a release tag in production; `@latest` works for trying the module locally.
 
-Minimal example:
+### CLI
+
+```bash
+go install github.com/justinush/maestro/cmd/maestro@v0.1.1
+maestro --version
+```
+
+Or download a binary from [GitHub Releases](https://github.com/justinush/maestro/releases) — e.g. `maestro_v0.1.1_darwin_arm64.tar.gz` on macOS, or `.zip` on Windows. Check `SHA256SUMS` on the release page when verifying downloads.
+
+### Minimal example
 
 ```go
 package main
@@ -298,7 +307,7 @@ reg := engine.RegistryWithHTTP(client)
 
 ## Project Status
 
-**v0.1.0** is the first public release. Maestro is still early `v0.x` — APIs may evolve before v1.
+Latest release: **v0.1.1** (CLI version reporting and cross-platform binaries). Maestro is still early `v0.x` — APIs may evolve before v1.
 
 See [CHANGELOG.md](./CHANGELOG.md) for release notes and [docs/roadmap.md](./docs/roadmap.md) for what's next.
 

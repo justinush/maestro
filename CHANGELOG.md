@@ -2,6 +2,22 @@
 
 Notable Maestro changes live here.
 
+## [0.1.1] - 2026-05-31
+
+### Fixed
+
+- `maestro --version` shows the real tag when you install with `go install ...@vX.Y.Z` (was always `dev` in v0.1.0)
+
+### Added
+
+- Cross-platform CLI archives on GitHub Releases (linux, darwin, windows; amd64 and arm64 where applicable)
+- `SHA256SUMS` alongside release archives
+- `make verify-version` and `make build-release` for maintainers
+
+### Notes
+
+`go install` and release binaries should both print the module tag (e.g. `v0.1.1`).
+
 ## [0.1.0] - 2026-05-30
 
 First public release.

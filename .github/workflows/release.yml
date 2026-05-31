@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: release
+  release-check:
+    name: release-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,14 +29,98 @@ jobs:
         with:
           version: v2.12.1
 
-      - name: Release checks (verify, fmt-check, vet, test, smoke)
+      - name: Release checks
         run: make release-check
 
-      - name: Build release binary
-        run: make build VERSION=${{ github.ref_name }}
+      - name: Verify CLI version
+        run: make verify-version VERSION=${{ github.ref_name }}
+
+  build-binaries:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: release-check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive: zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build and package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          MODULE=github.com/justinush/maestro
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then
+            EXT=".exe"
+          fi
+          BIN="maestro${EXT}"
+          OUT_DIR="dist/maestro_${VERSION}_${GOOS}_${GOARCH}"
+          mkdir -p "$OUT_DIR"
+          CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath \
+            -ldflags "-X ${MODULE}/cli.Version=${VERSION}" \
+            -o "${OUT_DIR}/${BIN}" ./cmd/maestro
+          ARCHIVE="dist/maestro_${VERSION}_${GOOS}_${GOARCH}.${{ matrix.archive }}"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd dist && zip -r "$(basename "$ARCHIVE")" "$(basename "$OUT_DIR")")
+          else
+            tar -C dist -czf "$ARCHIVE" "$(basename "$OUT_DIR")"
+          fi
+          rm -rf "$OUT_DIR"
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.ARCHIVE }}
+          if-no-files-found: error
+
+  github-release:
+    name: github-release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all archives
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/release
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        run: |
+          cd dist/release
+          shasum -a 256 maestro_*.tar.gz maestro_*.zip 2>/dev/null | tee SHA256SUMS
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/maestro
+          files: |
+            dist/release/*
           generate_release_notes: true

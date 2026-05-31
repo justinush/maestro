@@ -6,8 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "dev"
-
 func Execute() error {
 	return newRootCmd().Execute()
 }
@@ -18,7 +16,7 @@ func newRootCmd() *cobra.Command {
 		Short:         "CLI tool for Maestro",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Version:       Version,
+		Version:       ResolvedVersion(),
 	}
 
 	root.SetVersionTemplate("{{.Version}}\n")
