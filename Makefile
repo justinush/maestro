@@ -27,6 +27,8 @@ CLI_MAIN := ./cmd/maestro
 VERSION ?= dev
 LDFLAGS ?= -X $(MODULE)/cli.Version=$(VERSION)
 
+RELEASE_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+
 .PHONY: help
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -164,6 +166,30 @@ build:
 .PHONY: install
 install:
 	CGO_ENABLED=0 $(GO) install -trimpath -ldflags '$(LDFLAGS)' $(CLI_MAIN)
+
+.PHONY: verify-version
+verify-version: build
+	@test "$$("$(MAESTRO)" --version | tr -d '\n')" = "$(VERSION)"
+
+.PHONY: build-release
+build-release:
+	@set -e; \
+	if [ "$(VERSION)" = "dev" ]; then \
+		echo "set VERSION=vX.Y.Z (e.g. make build-release VERSION=v0.1.1)"; \
+		exit 1; \
+	fi; \
+	for p in $(RELEASE_PLATFORMS); do \
+		GOOS=$${p%/*}; GOARCH=$${p#*/}; \
+		$(MAKE) build-one GOOS=$$GOOS GOARCH=$$GOARCH VERSION=$(VERSION); \
+	done
+
+.PHONY: build-one
+build-one:
+	@mkdir -p $(DIST_DIR)
+	@EXT=""; [ "$(GOOS)" = "windows" ] && EXT=".exe"; \
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -trimpath \
+		-ldflags '-X $(MODULE)/cli.Version=$(VERSION)' \
+		-o $(DIST_DIR)/maestro_$(VERSION)_$(GOOS)_$(GOARCH)$$EXT $(CLI_MAIN)
 
 ##@ Examples / smoke
 
