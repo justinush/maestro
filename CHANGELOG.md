@@ -2,6 +2,12 @@
 
 Notable Maestro changes live here.
 
+## [0.2.0] - TBD
+
+### Added
+
+- `pkg/workflow`: workflow registry for multi-definition apps (`NewRegistry`, `Register`, `LoadDir`, `Lookup`, `NewInstance`, `RestoreInstance` with `ErrDefinitionMismatch`, `List`, `Contains`).
+
 ## [0.1.1] - 2026-05-31
 
 ### Fixed
