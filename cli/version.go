@@ -5,15 +5,19 @@ import "runtime/debug"
 var Version = "dev"
 
 func ResolvedVersion() string {
-	if Version != "" && Version != "dev" {
-		return Version
+	return resolveVersion(Version)
+}
+
+func resolveVersion(ver string) string {
+	if ver != "" && ver != "dev" {
+		return ver
 	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return Version
+		return ver
 	}
 	if v := info.Main.Version; v != "" && v != "(devel)" {
 		return v
 	}
-	return Version
+	return ver
 }
