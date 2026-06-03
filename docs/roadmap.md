@@ -12,9 +12,12 @@ See the [changelog](../CHANGELOG.md) for what's already shipped.
 - Validate + simulate CLI
 - Examples and a KYC backend demo
 
+## In 0.2.0 (in progress)
+
+- Workflow registry (`pkg/workflow`) — host multiple definitions; `LoadDir`, `Registry`, restore by `RunRecord` workflow id/version
+
 ## Next (v0.2-ish)
 
-- Workflow registries (host multiple workflow definitions in one application)
 - Clearer workflow versioning story (new YAML vs runs already in flight)
 - Async callbacks / webhooks (resume a workflow without holding a request open)
 - Retries and timers on action steps
