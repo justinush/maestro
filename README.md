@@ -128,6 +128,33 @@ transitions:
     to: approved
 ```
 
+### Multiple workflows
+
+For apps that host more than one workflow definition, use **`pkg/workflow`** (optional — single-workflow apps can keep using `maestro.Load` above).
+
+This is a **workflow registry** (maps workflow `id` + `version` to a validated runtime). It is not the **action registry** (`engine.Registry` / `RegistryWithHTTP`), which dispatches step action types like `stub` and `http`.
+
+```go
+import (
+	"github.com/justinush/maestro/pkg/maestro"
+	"github.com/justinush/maestro/pkg/validate"
+	"github.com/justinush/maestro/pkg/workflow"
+)
+
+reg, err := workflow.LoadDir("workflows", validate.Options{})
+if err != nil {
+	return err
+}
+
+key := workflow.Key{ID: "kyc.sg.main", Version: "1.0.0"}
+
+in, err := reg.NewInstance(key, maestro.InstanceOptions{
+	RunID: "run_123",
+})
+```
+
+Your app still owns product routing (for example country + flow type -> `workflow.Key`). Maestro resolves `id` + `version` to a runtime. Persisted runs store `workflowId` and `workflowVersion` on `RunRecord`; resume with `reg.RestoreInstance(rec, maestro.InstanceOptions{...})`.
+
 ---
 
 ## Embedding (canonical path)
@@ -295,7 +322,8 @@ reg := engine.RegistryWithHTTP(client)
 | Path | Purpose |
 |---|---|
 | `pkg/maestro` | **canonical** embedding API (start here) |
-| `pkg/engine` | workflow runtime (advanced / custom registries) |
+| `pkg/workflow` | optional multi-workflow registry (`LoadDir`, `Registry`) |
+| `pkg/engine` | workflow runtime (advanced; action registry) |
 | `pkg/run` | persistence types and `Store` |
 | `pkg/run/postgres` | Postgres `Store` adapter (JSONB, optimistic locking) |
 | `pkg/definition` | workflow schema + decoding |
@@ -325,7 +353,7 @@ Release notes: [CHANGELOG.md](./CHANGELOG.md).
 
 Direction and priorities: [docs/roadmap.md](./docs/roadmap.md).
 
-Roughly next: workflow registries, versioning, async callbacks, retries/timers, observability.
+**v0.2 (in progress):** `pkg/workflow` registry. **Next:** versioning, async callbacks, retries/timers, observability. See [roadmap](./docs/roadmap.md).
 
 ---
 

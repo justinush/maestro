@@ -6,7 +6,7 @@ Notable Maestro changes live here.
 
 ### Added
 
-- `pkg/workflow`: workflow registry for multi-definition apps (`NewRegistry`, `Register`, `LoadDir`, `Lookup`, `NewInstance`, `RestoreInstance` with `ErrDefinitionMismatch`, `List`, `Contains`).
+- `pkg/workflow`: workflow registry for hosting multiple workflow definitions in one process (`LoadDir`, `Registry`, lookup by `id` + `version`, `RestoreInstance` with identity checks). Single-workflow `maestro.Load` / `Runtime` APIs are unchanged.
 
 ## [0.1.1] - 2026-05-31
 
@@ -47,4 +47,4 @@ This release is the basics: run a workflow, hit a human step, save it, pick it u
 
 While we're still in v0.x, we want `RunRecord`, `Snapshot`, and run status values to stay predictable. Things can still change as we learn, but we won't casually break persistence shapes — that'll be a major version thing.
 
-Next up: workflow registries, a clearer versioning story, then async callbacks, retries/timers, and observability.
+Next up: a clearer versioning story, then async callbacks, retries/timers, and observability (`pkg/workflow` registry ships in v0.2.0).
