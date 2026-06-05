@@ -18,7 +18,7 @@ See the [changelog](../CHANGELOG.md) for what's already shipped.
 
 ## Next (v0.2-ish)
 
-- Clearer workflow versioning story (new YAML vs runs already in flight)
+- Workflow versioning story — [design draft](design/workflow-versioning.md) (new YAML vs runs already in flight)
 - Async callbacks / webhooks (resume a workflow without holding a request open)
 - Retries and timers on action steps
 - Better observability and typed variable helpers

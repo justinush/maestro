@@ -86,7 +86,9 @@ Store.Get -> rt.RestoreInstance   (preferred in apps)
 
 **HTTP actions:** pass your own `*http.Client` to `engine.RegistryWithHTTP`. The `maestro simulate` CLI uses a private long-timeout client (not exported from `pkg/engine`).
 
-### Workflow registry (multi-workflow apps)
+## Workflow registry
+
+Multi-workflow apps:
 
 For **single-workflow** apps, `maestro.Load` returns one `Runtime` — the path above is enough.
 
@@ -105,6 +107,8 @@ workflow id + version  ->  Runtime  ->  Instance
 ```
 
 `RunRecord` already stores `workflowId` and `workflowVersion`; `Registry.RestoreInstance` looks up the correct definition for an existing run. Single-workflow apps can keep using `rt.RestoreInstance` unchanged.
+
+Which version **new** runs should use (rollouts, rollbacks, “active” version) is host policy — see [Workflow versioning design](design/workflow-versioning.md).
 
 ---
 
