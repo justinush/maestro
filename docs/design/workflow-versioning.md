@@ -158,7 +158,7 @@ The `activeVersion` function above is the whole catalog for many hosts — a map
 
 ## KYC-style scenarios
 
-Sanity check for Binance-scale KYC hosts. Expected behavior under this design:
+Sanity check for large-scale, multi-entity KYC hosts. Expected behavior under this design:
 
 | Scenario | Host action | Effect on runs |
 |----------|-------------|----------------------|
