@@ -215,6 +215,8 @@ reg := engine.RegistryWithHTTP(client)
 
 ---
 
+<a id="pause-resume-model"></a>
+
 # Pause / Resume Model
 
 One of Maestro's core ideas is resumable orchestration.
@@ -244,6 +246,8 @@ This model fits naturally into:
 - approval systems
 - onboarding flows
 - async operational workflows
+
+Multi-day waits (webhooks, approval links, provider callbacks) use the same persist → restore → resume loop — see [Async callbacks design](design/async-callbacks.md).
 
 ---
 
