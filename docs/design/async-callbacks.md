@@ -4,7 +4,7 @@ How to resume a workflow days later — when a webhook fires, a manager clicks a
 
 This doc covers **waiting and resume**: what Maestro does today, what production hosts need, and what we may add to the engine next. Persistence and restore mechanics are in [architecture — pause / resume](../architecture.md#pause-resume-model). Workflow identity on restore follows [workflow versioning](workflow-versioning.md).
 
-**Status:** design draft. No new APIs are committed until we agree on this text and try the bridge pattern in a real host.
+**Status:** design draft. Validate the bridge pattern in a real host integration before adding engine primitives such as `kind: wait`.
 
 ---
 
@@ -30,8 +30,8 @@ This doc covers **waiting and resume**: what Maestro does today, what production
 Today the happy path looks synchronous:
 
 ```text
-human step → RunUntilBlocked → RunBlocked
-           → SubmitInput → RunUntilBlocked → …
+blocking input step → RunUntilBlocked → RunBlocked
+                    → SubmitInput → RunUntilBlocked → …
 ```
 
 Real systems look like this:
@@ -59,9 +59,9 @@ That gap is what this design addresses.
 
 ## What already works
 
-**Delayed human input** is already async.
+**Delayed resume** is already async. A **blocking input step** waits until the host delivers a payload. In today’s schema that is `kind: human`; the same mechanism covers UI forms, webhooks, approval links, and internal APIs.
 
-When execution hits a `kind: human` step, `RunUntilBlocked` returns `RunBlocked`. The host persists `RunRecord` and returns. Hours or weeks later:
+When execution reaches such a step, `RunUntilBlocked` returns `RunBlocked`. The host persists `RunRecord` and returns. Hours or weeks later:
 
 ```go
 rec, _ := store.Get(ctx, runID)
@@ -72,13 +72,15 @@ _ = in.RunUntilBlocked()                // drive action steps until next block o
 _ = store.Save(ctx, run.RecordFromInstance(in, def, rec.Revision))
 ```
 
-The [kyc-backend demo](../../examples/apps/kyc-backend/) follows this pattern: `Start` blocks on the first human step; later API calls restore and `SubmitInput` on the expected step.
+**`SubmitInput` is transport-neutral.** The name reflects step kind in YAML, not where the payload comes from. A host may call it from a UI handler, webhook endpoint, signed approval link, or backoffice API — same validation, same transitions.
+
+The [kyc-backend demo](../../examples/apps/kyc-backend/) follows this pattern: `Start` blocks on the first blocking input step; later API calls restore and `SubmitInput` on the expected step.
 
 **Correlation id:** `RunID` on the instance and in `RunRecord` / `Snapshot`. That is the primary key hosts use to tie a callback to a run.
 
 **Concurrency:** `RunRecord.Revision` + `Store.Save` optimistic locking — two concurrent resumes must not silently clobber each other.
 
-So: **approval-link tomorrow** and **form submit next week** are not missing engine features. They need host HTTP handlers and persistence discipline, not a new primitive — unless we want clearer YAML for non-UI waits (see [Bridge pattern](#bridge-pattern-wait-without-a-new-primitive) below).
+So: **approval-link tomorrow** and **form submit next week** are not missing engine features. They need host HTTP handlers and persistence discipline, not a new primitive. Vendor webhooks use the same `SubmitInput` path once the run is on a **resume step** (see [Bridge pattern](#bridge-pattern) below).
 
 ---
 
@@ -87,10 +89,10 @@ So: **approval-link tomorrow** and **form submit next week** are not missing eng
 | Need | Today |
 |------|--------|
 | Pause after outbound vendor call, resume on webhook | Action steps do not yield mid-step; HTTP runner is synchronous |
-| Express “wait for external event” in YAML without pretending it is a UI form | Only `kind: human` blocks |
-| Webhook payload → variables → transition | Works **if** the run is blocked on a step that accepts `SubmitInput` |
+| Express “wait for external input” in the graph | Only `kind: human` blocks (resume step in prose) |
+| Webhook payload → variables → transition | Works when the run is blocked on a resume step that accepts `SubmitInput` |
 
-Vendor-shaped async is the main gap. Human-shaped async already works.
+Vendor-shaped async is the main gap. UI- and API-driven resume on a blocking input step already works.
 
 ---
 
@@ -100,8 +102,8 @@ A run is **waiting** when the host must not call `RunUntilBlocked` again until i
 
 | Field | Meaning |
 |-------|---------|
-| `RunResult.Status == RunBlocked` | Engine yielded on a human step |
-| `Snapshot.CurrentStepID` | Step that must receive the next resume |
+| `RunResult.Status == RunBlocked` | Engine yielded on a blocking input step (`kind: human` today) |
+| `Snapshot.CurrentStepID` | Resume step — must receive the next payload |
 | `Snapshot.OnEnterRan` | Whether `onEnter` actions on that step already ran |
 | `Snapshot.Variables` | State merged from prior steps and prior inputs |
 | `RunRecord.WorkflowID` / `WorkflowVersion` | Definition used on restore (exact version — see versioning doc) |
@@ -114,10 +116,12 @@ Trace event `run.blocked` (`EventBlocked`) is recorded when blocking.
 
 | Kind | Who delivers resume | Engine API today |
 |------|---------------------|------------------|
-| **Human** | End user, backoffice API, approval link handler | `SubmitInput` on `kind: human` |
-| **External / vendor** | Webhook handler after vendor event | Same as human if modeled as a wait step (bridge); dedicated primitive TBD |
+| **UI / API input** | End user, backoffice API | `SubmitInput` on resume step |
+| **Async callback** | Webhook handler, approval link, provider callback | `SubmitInput` on resume step (bridge) |
 
-We may later distinguish external waits in status or step kind. Until then, the bridge uses human blocking semantics under the hood.
+Both paths use the same engine API. The host chooses the transport.
+
+We may later add a dedicated step kind or signal API. Until then, the bridge models vendor waits as a resume step — blocking semantics already match.
 
 ---
 
@@ -129,22 +133,31 @@ Maestro does not receive webhooks. The host does. Correlation is split on purpos
 
 ```text
 runId              — primary key on RunRecord
-currentStepId      — in Snapshot; which step expects resume
+currentStepId      — in Snapshot; resume step that expects the next payload
 workflowId + version — on RunRecord for RestoreInstance
+variables          — may include externalRef from an earlier create step (host convention)
 ```
 
 ### What the host adds
 
 ```text
-Vendor id → runId mapping     (e.g. verification session id in Postgres)
+externalRef lookup table:
+  vendorSessionId / providerPaymentId / …  →  (runId, expectedStepId)
+
 Signed token in callback URL  (runId + stepId + expiry + HMAC)
 Webhook signature verification
 Idempotency on vendor event id (safe to process duplicate delivery)
 ```
 
-**Minimum resume key:** `(runId, stepId)` — after restore, the host checks `in.CurrentStepID()` matches the step the callback is for. Wrong step → reject (see kyc-backend `ErrWrongStep` pattern).
+**Minimum resume key (Maestro):** `(runId, stepId)` — after restore, the host checks `in.CurrentStepID()` matches the step the callback is for. Wrong step → reject (see kyc-backend `ErrWrongStep` pattern).
 
-Maestro does not plan a global callback registry in core. Optional host tables and URL shapes are integration details.
+**Typical vendor flow:**
+
+1. Create step stores `externalRef` in `variables` (e.g. from HTTP action `resultVariable`) and registers `externalRef → runId` in a host table.
+2. Webhook body carries the vendor’s id → host lookup → `runId` + `expectedStepId`.
+3. Restore → step guard → `SubmitInput(normalizedPayload)`.
+
+Maestro does not plan a global callback registry in core. The host owns the `externalRef` mapping table and URL shapes.
 
 ---
 
@@ -153,18 +166,18 @@ Maestro does not plan a global callback registry in core. Optional host tables a
 Canonical handler for any async completion (approval, webhook, provider callback):
 
 ```go
-// 1. Resolve run (from URL token, body, or vendor-id lookup)
+// 1. Resolve run (from URL token, or externalRef lookup from webhook body)
 rec, err := store.Get(ctx, runID)
 
 // 2. Restore exact workflow version
 in, err := reg.RestoreInstance(rec, maestro.InstanceOptions{ActionRegistry: reg})
 
-// 3. Guard: callback is for the step we think
+// 3. Guard: callback is for the resume step we expect
 if in.CurrentStepID() != wantStep {
     return errWrongStep
 }
 
-// 4. Deliver payload (today: SubmitInput on human / wait step)
+// 4. Deliver payload — SubmitInput is transport-neutral (UI, webhook, link, API)
 sub := in.SubmitInput(normalizedPayload)
 if sub.Status == engine.SubmitFailed {
     return sub.Err
@@ -183,11 +196,11 @@ case engine.RunFailed:
 return store.Save(ctx, run.RecordFromInstance(in, def, rec.Revision))
 ```
 
-**Host owns:** steps 1 and 3 (auth, mapping, idempotency, normalizing vendor JSON to the input map).
+**Host owns:** steps 1 and 3 (auth, `externalRef` mapping, idempotency, normalizing vendor JSON to the input map).
 
 **Maestro owns:** steps 4–6 semantics (validation against `inputSchema`, transitions, action execution, snapshot).
 
-**Idempotency:** if the vendor redelivers the same event, the host should detect “already advanced past this step” or “duplicate event id” before calling `SubmitInput` again. Engine-level dedup is not in scope for the first slice.
+**Callback idempotency:** if the vendor redelivers the same event, the host should detect “already advanced past this step” or “duplicate event id” before calling `SubmitInput` again. Engine-level dedup is not in scope for the first slice.
 
 ---
 
@@ -197,7 +210,7 @@ return store.Save(ctx, run.RecordFromInstance(in, def, rec.Revision))
 |---------|------|
 | `RunBlocked` / `RunCompleted` / `RunFailed` | HTTP routes for webhooks and approval links |
 | Snapshot + `RunRecord` shape | Vendor SDKs and outbound API calls |
-| `SubmitInput` (+ future external resume API if we add one) | Vendor payload → input map |
+| `SubmitInput` on blocking input steps | Vendor payload → input map (webhook, UI, link, API) |
 | `inputSchema` validation on resume | Webhook auth, replay protection |
 | Execution trace (`run.blocked`, `input.accepted`, …) | When to call vendor (which step’s `onEnter`) |
 | Restore by exact `(workflowId, version)` | Retry polling, DLQ, alerting |
@@ -210,31 +223,35 @@ return store.Save(ctx, run.RecordFromInstance(in, def, rec.Revision))
 
 | | |
 |--|--|
-| **Graph** | `kind: human` step with `inputSchema` for `{ approved: bool }` |
+| **Graph** | Resume step (`kind: human`) with `inputSchema` for `{ approved: bool }` |
 | **Wait** | `RunUntilBlocked` → `RunBlocked` → persist |
 | **Resume** | Link hits host → restore → `SubmitInput({ approved: true })` → `RunUntilBlocked` |
 | **Engine change** | None required |
 
-This is the same model as a backoffice API — only the transport differs.
+`SubmitInput` from the link handler — same API as a backoffice form post.
 
 ### Vendor verification (create session, webhook days later)
 
 | | |
 |--|--|
-| **Graph (bridge)** | `action` step: `onEnter` HTTP POST creates session, stores vendor id in `variables` → `wait-vendor` human step (minimal schema) → transitions on webhook payload |
-| **Wait** | Blocked on `wait-vendor` |
-| **Resume** | Webhook handler looks up `runId` from vendor id → `SubmitInput` with normalized result → `RunUntilBlocked` |
-| **Engine change** | None for bridge; optional `kind: wait` later for clearer YAML |
+| **Graph (bridge)** | `action` step: `onEnter` HTTP POST creates session, stores `externalRef` in `variables` → resume step → transitions on webhook payload |
+| **Wait** | Blocked on resume step (e.g. `wait-vendor-result`) |
+| **Resume** | Webhook → `externalRef` lookup → restore → `SubmitInput` → `RunUntilBlocked` |
+| **Engine change** | None for bridge |
+
+**Create-step idempotency:** outbound `onEnter` actions that create vendor sessions must be idempotent at the host or vendor layer. Use idempotency keys such as `runId` + `stepId` so retries or partial failures do not open duplicate external resources. Store the returned `externalRef` in `variables` and in the host lookup table before blocking on the resume step.
 
 ### Payment provider callback
 
-Same as vendor verification: outbound action (or host code before block) + wait step + webhook → `SubmitInput`. Provider signature verification and idempotency stay in the host.
+Same as vendor verification: outbound create + resume step + webhook → `SubmitInput`. Provider signature verification, `externalRef` mapping, and idempotency stay in the host.
 
 ---
 
-## Bridge pattern (wait without a new primitive)
+## Bridge pattern
 
-Until we add a dedicated external-wait step or signal API, model vendor waits as a **human step used only as a pause point**:
+Until we add a dedicated step kind or signal API, model vendor waits as two steps: **create** (action) + **resume** (blocking input step that waits for external input).
+
+In YAML the resume step is still `kind: human`. In prose we call it a **resume step** — it accepts input from a webhook as readily as from a UI.
 
 ```yaml
 - id: create-verification
@@ -245,18 +262,18 @@ Until we add a dedicated external-wait step or signal API, model vendor waits as
       params:
         method: POST
         url: "https://vendor.example/v1/sessions"
-        resultVariable: vendor
+        resultVariable: vendor   # host reads vendor.sessionId → externalRef
 
 - id: wait-vendor-result
   kind: human
-  description: Blocks until vendor webhook; no end-user UI.
+  description: Resume step — blocks until vendor webhook delivers result.
   inputSchema:
     type: object
     required: [status]
     properties:
       status:
         type: string
-      vendorRef:
+      externalRef:
         type: string
 
 transitions:
@@ -267,26 +284,28 @@ transitions:
     when: "variables.status == 'approved'"
 ```
 
-**Pros:** ships on today’s engine; explicit in the graph; `inputSchema` documents the webhook payload.
+**Outbound idempotency:** the create step’s `onEnter` may call an external API. If the host retries or re-enters that path, duplicate vendor sessions are a real risk. Create calls should be idempotent (e.g. idempotency key = `runId` + `create-verification` step id). Persist `externalRef` to `variables` and the host lookup table before advancing to the resume step.
 
-**Cons:** `kind: human` for non-human events is a modeling compromise; `presentationRef` may be empty or a host convention.
+**Pros:** ships on today’s engine; explicit create vs wait in the graph; `inputSchema` documents the webhook payload; `SubmitInput` stays the single resume API.
 
-We treat this as an **official bridge**, not a hack — documented here until a clearer step kind or signal API exists.
+**Cons:** YAML still says `kind: human` for vendor waits; `presentationRef` is usually omitted on resume steps.
+
+This is the **intended bridge** for v0.2.x — validate in a host integration before adding `kind: wait` or other engine primitives.
 
 ---
 
-## Design options (engine)
+## Design options (engine — deferred)
 
-If the bridge is not enough, pick **one** primary primitive in a follow-up implementation pass — not all at once.
+**Do not implement `kind: wait` yet.** Validate the bridge in a host integration first (create session → resume step → webhook → `SubmitInput`). Revisit this table only if that spike proves the bridge is too awkward.
 
 | Option | Idea | Pros | Cons |
 |--------|------|------|------|
-| **Bridge only** | Human wait step | Zero engine change | YAML semantics |
-| **`kind: wait`** | New step kind; blocks like human; `SubmitInput` or `DeliverCallback` | Clear graph | Schema + engine loop change |
-| **`DeliverSignal(name, payload)`** | Signal while blocked; name matches step or subscription | Webhook-shaped; UI stays on `SubmitInput` | New API; overlap rules with human |
-| **Async action runner** | Action returns pending; new `RunStatus` | Matches “one step” mentally | Harder to test; couples with retries |
+| **Bridge (default)** | Resume step + `SubmitInput` | Zero engine change; transport-neutral resume | YAML says `kind: human` |
+| **`kind: wait`** | New step kind; blocks like resume step today | Clearer graph | Schema + engine loop change — **deferred** |
+| **`DeliverSignal(name, payload)`** | Signal while blocked | Webhook-shaped naming | New API; overlap rules with `SubmitInput` |
+| **Async action runner** | Action returns pending; new `RunStatus` | Single-step mental model | Harder to test; couples with retries |
 
-**Current lean:** ship the **bridge** pattern first (docs + optional `examples/`); add **`kind: wait`** or **`DeliverSignal`** only if host integration proves the bridge is too awkward. Avoid async-only action magic in the first engine change.
+**Current lean:** bridge only until host validation says otherwise. Avoid async-only action magic and avoid shipping multiple new primitives at once.
 
 Relationship to **retries / timers** (roadmap): callbacks are **push** (event arrives). Retries are **pull** (engine or host tries again). They compose but ship as separate designs.
 
@@ -296,8 +315,8 @@ Relationship to **retries / timers** (roadmap): callbacks are **push** (event ar
 
 Already available:
 
-- `Instance.RunUntilBlocked()` → `RunBlocked` on human steps
-- `Instance.SubmitInput(map[string]any)` — human steps only
+- `Instance.RunUntilBlocked()` → `RunBlocked` on blocking input steps (`kind: human` today)
+- `Instance.SubmitInput(map[string]any)` — transport-neutral resume on those steps
 - `run.RecordFromInstance` / `Store.Save` / `RestoreInstance`
 - `workflow.Registry.RestoreInstance` for multi-workflow hosts
 - `RunID` on instance and snapshot
@@ -316,20 +335,19 @@ Not available today:
 | Phase | Deliverable | Notes |
 |-------|-------------|--------|
 | **1 — design** | This doc + architecture / roadmap links | Agree on rules before code |
-| **2 — bridge** | Optional `examples/` snippet | Vendor create + human wait step; **no engine change required** |
-| **3 — engine (if needed)** | One resume primitive | `kind: wait` **or** `DeliverSignal` — not both in first implementation; CLI simulate support for webhook inject |
+| **2 — bridge validation** | Host integration spike | Create vendor session → resume step → webhook → `SubmitInput`; **no engine change** |
+| **3 — engine (only if spike fails)** | One resume primitive | `kind: wait` **or** `DeliverSignal` — not planned until bridge is proven insufficient |
 
-Explicitly **not** in scope: inbound webhook server, vendor-specific adapters, callback DB inside Maestro.
+Explicitly **not** in scope: inbound webhook server, vendor-specific adapters, callback DB inside Maestro, `kind: wait` before bridge validation.
 
 ---
 
 ## Open questions
 
-1. **Native primitive name** — `wait` step vs `signal` vs generalized `Resume(stepID, payload)`?
-2. **Bridge deprecation** — when native wait ships, do we keep recommending human-as-wait for simple cases?
-3. **`inputSchema` on wait steps** — required for vendor payloads, or optional with host validation only?
-4. **Status subtyping** — does `RunBlocked` need a reason (`human` vs `external`), or is `step.kind` after restore enough?
-5. **Simulate tooling** — `maestro simulate` inject callback step as `submit` vs new `signal` command?
+1. **After bridge spike** — is `kind: human` resume step good enough long-term, or do we need `kind: wait` / `DeliverSignal`?
+2. **`inputSchema` on resume steps** — required for vendor payloads, or optional with host validation only?
+3. **Status subtyping** — does `RunBlocked` need a reason (`ui` vs `callback`), or is step id + host context enough?
+4. **Simulate tooling** — `maestro simulate` inject resume step via existing submit vs new command?
 
 ---
 
@@ -345,9 +363,9 @@ Explicitly **not** in scope: inbound webhook server, vendor-specific adapters, c
 
 ## Summary
 
-- **Human async already works:** `RunBlocked` → persist → later `SubmitInput` → `RunUntilBlocked` → save.
-- **Vendor async needs a pattern:** bridge today (`action` create + `human` wait step + webhook handler); optional engine primitive later.
-- **Callback identity:** `runId` + `stepId` in Maestro; vendor mapping and auth in the host.
-- **Never hold requests open** — always persist before returning from the start or resume path.
-- **Retiring a blocked run** still requires the workflow version to be loaded on restore (versioning rules apply).
-- Ship **design + bridge pattern** first; at most **one** new resume primitive if the bridge is not enough.
+- **Blocking input / resume steps already work:** `RunBlocked` → persist → later `SubmitInput` → `RunUntilBlocked` → save.
+- **`SubmitInput` is transport-neutral** — UI, webhook, approval link, or internal API.
+- **Vendor async (bridge):** action create (idempotent `onEnter`) + resume step + webhook → `externalRef` lookup → `SubmitInput`.
+- **Callback identity:** `runId` + `stepId` in Maestro; `externalRef` → `(runId, expectedStepId)` in the host.
+- **Never hold requests open** — always persist before returning.
+- **Defer `kind: wait`** — validate bridge in a host spike first; engine primitives only if that fails.
