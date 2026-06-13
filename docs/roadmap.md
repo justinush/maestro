@@ -15,11 +15,10 @@ See the [changelog](../CHANGELOG.md) for what's already shipped.
 ## In 0.2.0 (in progress)
 
 - Workflow registry (`pkg/workflow`) — host multiple definitions; `LoadDir`, `Registry`, restore by `RunRecord` workflow id/version
+- Workflow versioning — [design](design/workflow-versioning.md) (host policy for multiple versions)
+- Async callbacks / webhooks — [design](design/async-callbacks.md) (resume without holding a request open)
 
 ## Next (v0.2-ish)
-
-- Workflow versioning story — [design draft](design/workflow-versioning.md) (new YAML vs runs already in flight)
-- Async callbacks / webhooks (resume a workflow without holding a request open)
 - Retries and timers on action steps
 - Better observability and typed variable helpers
 
