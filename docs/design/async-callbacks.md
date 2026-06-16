@@ -4,7 +4,7 @@ How to resume a workflow days later — when a webhook fires, a manager clicks a
 
 This doc covers **waiting and resume**: what Maestro does today, what production hosts need, and what we may add to the engine next. Persistence and restore mechanics are in [architecture — pause / resume](../architecture.md#pause-resume-model). Workflow identity on restore follows [workflow versioning](workflow-versioning.md).
 
-**Status:** design draft. Validate the bridge pattern in a real host integration before adding engine primitives such as `kind: wait`.
+**Status:** bridge pattern **validated** in a host integration spike (phase 2 complete). No new engine primitive for async resume yet. Next core focus: [custom action extensibility](#next-core-focus-custom-actions) so outbound create steps model cleanly in YAML.
 
 ---
 
@@ -88,11 +88,12 @@ So: **approval-link tomorrow** and **form submit next week** are not missing eng
 
 | Need | Today |
 |------|--------|
-| Pause after outbound vendor call, resume on webhook | Action steps do not yield mid-step; HTTP runner is synchronous |
-| Express “wait for external input” in the graph | Only `kind: human` blocks (resume step in prose) |
-| Webhook payload → variables → transition | Works when the run is blocked on a resume step that accepts `SubmitInput` |
+| Pause after outbound vendor call, resume on webhook | **Bridge:** separate action create step + resume step; no mid-action pause. Create must be idempotent (`runId` + `stepId`). |
+| Express “wait for external input” in the graph | `kind: human` blocks (resume step). Webhook-only waits use placeholder `presentationRef` until/unless `kind: wait` is revisited. |
+| Webhook payload → variables → transition | Works when blocked on resume step with `SubmitInput` — **validated in host spike**. |
+| Model custom outbound create in YAML | **Gap:** v0.1 schema allows only `stub` / `http`; engine supports custom runners. Custom action ergonomics is next. |
 
-Vendor-shaped async is the main gap. UI- and API-driven resume on a blocking input step already works.
+Vendor-shaped async resume is **solved by the bridge**. Remaining friction is **schema ergonomics** for create steps, not a missing resume primitive.
 
 ---
 
@@ -121,7 +122,7 @@ Trace event `run.blocked` (`EventBlocked`) is recorded when blocking.
 
 Both paths use the same engine API. The host chooses the transport.
 
-We may later add a dedicated step kind or signal API. Until then, the bridge models vendor waits as a resume step — blocking semantics already match.
+We may later add a dedicated step kind or signal API if the bridge proves insufficient in practice. The host spike showed `kind: human` resume steps are enough for webhook resume; placeholder `presentationRef` is acceptable for now.
 
 ---
 
@@ -135,8 +136,24 @@ Maestro does not receive webhooks. The host does. Correlation is split on purpos
 runId              — primary key on RunRecord
 currentStepId      — in Snapshot; resume step that expects the next payload
 workflowId + version — on RunRecord for RestoreInstance
-variables          — may include externalRef from an earlier create step (host convention)
+variables          — workflow state; may optionally mirror externalRef (see below)
 ```
+
+### `externalRef` mapping (host contract)
+
+The host owns callback routing. Maestro does not store vendor session ids, payment ids, or webhook tokens.
+
+**Canonical mapping (recommended):** a host database table is the source of truth:
+
+```text
+externalRef  →  (runId, expectedStepId)
+```
+
+Use this table to resolve inbound webhooks and provider callbacks. Index by `externalRef` for lookup; optionally index by `runId` for status APIs.
+
+**Optional mirror in `variables`:** after create, the host may also write `externalRef` into workflow variables (e.g. from an HTTP action `resultVariable` or a custom action runner). Useful for UI, debug, and tracing — but **do not** treat `variables` as the only mapping. Hosts that only store `externalRef` in variables lose a stable lookup key when enriching API responses from a blocked snapshot.
+
+**Idempotency:** create calls should use keys such as `runId` + `stepId` so retries do not open duplicate vendor resources. Webhook redelivery should be deduplicated on vendor `eventId` (or equivalent) in the host before calling `SubmitInput` again.
 
 ### What the host adds
 
@@ -153,7 +170,7 @@ Idempotency on vendor event id (safe to process duplicate delivery)
 
 **Typical vendor flow:**
 
-1. Create step stores `externalRef` in `variables` (e.g. from HTTP action `resultVariable`) and registers `externalRef → runId` in a host table.
+1. Create step (action `onEnter`) creates the vendor session idempotently and registers `externalRef → (runId, expectedStepId)` in the host table. Optionally mirror `externalRef` into `variables`.
 2. Webhook body carries the vendor’s id → host lookup → `runId` + `expectedStepId`.
 3. Restore → step guard → `SubmitInput(normalizedPayload)`.
 
@@ -234,12 +251,12 @@ return store.Save(ctx, run.RecordFromInstance(in, def, rec.Revision))
 
 | | |
 |--|--|
-| **Graph (bridge)** | `action` step: `onEnter` HTTP POST creates session, stores `externalRef` in `variables` → resume step → transitions on webhook payload |
+| **Graph (bridge)** | `action` step: `onEnter` creates session (HTTP or app-owned action type) → resume step → transitions on webhook payload |
 | **Wait** | Blocked on resume step (e.g. `wait-vendor-result`) |
 | **Resume** | Webhook → `externalRef` lookup → restore → `SubmitInput` → `RunUntilBlocked` |
-| **Engine change** | None for bridge |
+| **Engine change** | None for bridge (validated) |
 
-**Create-step idempotency:** outbound `onEnter` actions that create vendor sessions must be idempotent at the host or vendor layer. Use idempotency keys such as `runId` + `stepId` so retries or partial failures do not open duplicate external resources. Store the returned `externalRef` in `variables` and in the host lookup table before blocking on the resume step.
+**Create-step idempotency:** outbound `onEnter` actions that create vendor sessions must be idempotent at the host or vendor layer. Use idempotency keys such as `runId` + `stepId` so retries or partial failures do not open duplicate external resources. Register `externalRef` in the host lookup table (and optionally in `variables`) before blocking on the resume step.
 
 ### Payment provider callback
 
@@ -266,6 +283,7 @@ In YAML the resume step is still `kind: human`. In prose we call it a **resume s
 
 - id: wait-vendor-result
   kind: human
+  presentationRef: internal/wait-vendor@v1   # placeholder when resume is webhook-only (see below)
   description: Resume step — blocks until vendor webhook delivers result.
   inputSchema:
     type: object
@@ -284,28 +302,71 @@ transitions:
     when: "variables.status == 'approved'"
 ```
 
-**Outbound idempotency:** the create step’s `onEnter` may call an external API. If the host retries or re-enters that path, duplicate vendor sessions are a real risk. Create calls should be idempotent (e.g. idempotency key = `runId` + `create-verification` step id). Persist `externalRef` to `variables` and the host lookup table before advancing to the resume step.
+**Outbound idempotency:** the create step’s `onEnter` may call an external API. If the host retries or re-enters that path, duplicate vendor sessions are a real risk. Create calls should be idempotent (e.g. idempotency key = `runId` + `create-verification` step id). Register `externalRef` in the host lookup table (and optionally in `variables`) before advancing to the resume step.
+
+**`presentationRef` on webhook-only resume steps:** v0.1 schema requires `presentationRef` on `kind: human`. When the only consumer of the resume step is a webhook (no UI), use a host-internal placeholder such as `internal/wait-vendor@v1`. The host does not need to render it. If many integrations need this pattern, revisit a dedicated step kind (e.g. `kind: wait`) later — not required for the bridge.
 
 **Pros:** ships on today’s engine; explicit create vs wait in the graph; `inputSchema` documents the webhook payload; `SubmitInput` stays the single resume API.
 
-**Cons:** YAML still says `kind: human` for vendor waits; `presentationRef` is usually omitted on resume steps.
+**Cons:** YAML still says `kind: human` for vendor waits; `presentationRef` is a placeholder when there is no UI.
 
-This is the **intended bridge** for v0.2.x — validate in a host integration before adding `kind: wait` or other engine primitives.
+This is the **intended bridge** for v0.2.x. Host integration spike **validated** it — see [Bridge validation](#bridge-validation-spike-outcome).
+
+---
+
+## Bridge validation (spike outcome)
+
+A separate-module host integration exercised the full path with **no Maestro engine changes**:
+
+```text
+POST start  →  action create step  →  resume step (RunBlocked)  →  persist
+POST webhook  →  externalRef lookup  →  restore  →  SubmitInput  →  RunUntilBlocked  →  save
+```
+
+**Validated:**
+
+- `SubmitInput` is sufficient for webhook resume (transport-neutral).
+- `kind: human` resume step blocking semantics match multi-day vendor waits.
+- Host-owned `externalRef` lookup table + webhook `eventId` deduplication work as designed.
+- `workflow.Registry` + `run.Store` restore after persist behaves correctly on the happy path.
+
+**Awkward (schema, not engine):** the create step could not be modeled as a custom action type (e.g. `type: vendor-create-session`) because v0.1 JSON Schema only allows `stub` and `http` in YAML. The engine already supports app-owned action runners via `engine.Registry.MustRegister`; validation is the gap. The spike used a `stub` in YAML and ran idempotent create in host code after `RunUntilBlocked` — workable, but create is invisible in the graph.
+
+**Verdict:** bridge pattern is **good enough**. Do **not** add `kind: wait`, `DeliverSignal`, async action runners, or an engine callback registry yet.
+
+**Next core focus:** [custom action extensibility](#next-core-focus-custom-actions) so outbound create steps bind to app-owned runners in YAML. That removes the biggest spike friction without a new resume primitive.
+
+---
+
+## Next core focus: custom actions
+
+Runtime already dispatches custom action types when the host registers them (`engine.Registry.MustRegister`). v0.1 schema validation does not — `onEnter[].type` is enum-locked to `stub` and `http`.
+
+Planned follow-up (docs + schema/validate ergonomics, not a new execution primitive):
+
+1. Allow app-defined action types in workflow YAML (e.g. `type: vendor-create-session`) when the host registers the runner and opts in at `workflow.LoadDir` / validate time.
+2. Keep `stub` and `http` strictly validated; custom types pass structural checks and fail at run time if unregistered (same as today’s engine behavior).
+3. Document the embedding recipe: register runner → allow type in validator → reference in YAML.
+
+Once that lands, the bridge graph can express create in YAML again instead of host-side workarounds after block.
+
+**Explicitly deferred** (unchanged after spike): `kind: wait`, `DeliverSignal`, async action runner, engine callback registry.
 
 ---
 
 ## Design options (engine — deferred)
 
-**Do not implement `kind: wait` yet.** Validate the bridge in a host integration first (create session → resume step → webhook → `SubmitInput`). Revisit this table only if that spike proves the bridge is too awkward.
+**Bridge validated.** Do not implement the alternatives below unless a future integration proves the bridge insufficient (e.g. widespread pain from placeholder `presentationRef` alone).
 
-| Option | Idea | Pros | Cons |
-|--------|------|------|------|
-| **Bridge (default)** | Resume step + `SubmitInput` | Zero engine change; transport-neutral resume | YAML says `kind: human` |
-| **`kind: wait`** | New step kind; blocks like resume step today | Clearer graph | Schema + engine loop change — **deferred** |
-| **`DeliverSignal(name, payload)`** | Signal while blocked | Webhook-shaped naming | New API; overlap rules with `SubmitInput` |
-| **Async action runner** | Action returns pending; new `RunStatus` | Single-step mental model | Harder to test; couples with retries |
+| Option | Idea | Pros | Cons | Status |
+|--------|------|------|------|--------|
+| **Bridge (default)** | Resume step + `SubmitInput` | Zero engine change; transport-neutral resume | YAML says `kind: human`; placeholder `presentationRef` for webhooks | **Shipped pattern** |
+| **`kind: wait`** | New step kind; blocks like resume step today | Clearer graph for webhook-only waits | Schema + engine loop change | **Deferred** |
+| **`DeliverSignal(name, payload)`** | Signal while blocked | Webhook-shaped naming | New API; overlap rules with `SubmitInput` | **Deferred** |
+| **Async action runner** | Action returns pending; new `RunStatus` | Single-step mental model | Harder to test; couples with retries | **Deferred** |
+| **Engine callback registry** | Core stores `externalRef` → run | Central lookup | Wrong layer; host owns vendors | **Not planned** |
 
-**Current lean:** bridge only until host validation says otherwise. Avoid async-only action magic and avoid shipping multiple new primitives at once.
+**Current lean:** bridge + host mapping table. Improve YAML ergonomics via custom action types before revisiting new resume primitives.
 
 Relationship to **retries / timers** (roadmap): callbacks are **push** (event arrives). Retries are **pull** (engine or host tries again). They compose but ship as separate designs.
 
@@ -334,20 +395,22 @@ Not available today:
 
 | Phase | Deliverable | Notes |
 |-------|-------------|--------|
-| **1 — design** | This doc + architecture / roadmap links | Agree on rules before code |
-| **2 — bridge validation** | Host integration spike | Create vendor session → resume step → webhook → `SubmitInput`; **no engine change** |
-| **3 — engine (only if spike fails)** | One resume primitive | `kind: wait` **or** `DeliverSignal` — not planned until bridge is proven insufficient |
+| **1 — design** | This doc + architecture / roadmap links | Done |
+| **2 — bridge validation** | Host integration spike | **Done** — create → resume step → webhook → `SubmitInput`; no engine change |
+| **3 — custom actions** | Schema / validate ergonomics for app-owned `onEnter` types | Next — see [Next core focus](#next-core-focus-custom-actions) |
+| **4 — engine (only if bridge fails)** | `kind: wait` **or** `DeliverSignal` | **Not planned** after spike; revisit only if bridge proves insufficient |
 
-Explicitly **not** in scope: inbound webhook server, vendor-specific adapters, callback DB inside Maestro, `kind: wait` before bridge validation.
+Explicitly **not** in scope: inbound webhook server, vendor-specific adapters, callback DB inside Maestro, `kind: wait` before custom-action ergonomics land.
 
 ---
 
 ## Open questions
 
-1. **After bridge spike** — is `kind: human` resume step good enough long-term, or do we need `kind: wait` / `DeliverSignal`?
-2. **`inputSchema` on resume steps** — required for vendor payloads, or optional with host validation only?
-3. **Status subtyping** — does `RunBlocked` need a reason (`ui` vs `callback`), or is step id + host context enough?
-4. **Simulate tooling** — `maestro simulate` inject resume step via existing submit vs new command?
+1. **After bridge spike** — **resolved:** `kind: human` resume step is good enough for async callbacks. Defer `kind: wait` / `DeliverSignal` unless placeholder `presentationRef` becomes painful across many hosts.
+2. **`inputSchema` on resume steps** — spike used required `status` on vendor resume step; keep as host best practice for webhook payloads. Still optional in schema.
+3. **Status subtyping** — open: does `RunBlocked` need a reason (`ui` vs `callback`), or is step id + host context enough? Spike used step id + host status mapping only.
+4. **Simulate tooling** — open: `maestro simulate` inject resume step via existing submit vs new command?
+5. **Custom action types in YAML** — open: allowlist at `workflow.LoadDir` vs schema version bump; see [Next core focus](#next-core-focus-custom-actions).
 
 ---
 
@@ -365,7 +428,8 @@ Explicitly **not** in scope: inbound webhook server, vendor-specific adapters, c
 
 - **Blocking input / resume steps already work:** `RunBlocked` → persist → later `SubmitInput` → `RunUntilBlocked` → save.
 - **`SubmitInput` is transport-neutral** — UI, webhook, approval link, or internal API.
-- **Vendor async (bridge):** action create (idempotent `onEnter`) + resume step + webhook → `externalRef` lookup → `SubmitInput`.
-- **Callback identity:** `runId` + `stepId` in Maestro; `externalRef` → `(runId, expectedStepId)` in the host.
+- **Vendor async (bridge):** action create (idempotent `onEnter`) + resume step + webhook → `externalRef` lookup → `SubmitInput`. **Validated in a host spike.**
+- **Callback identity:** `runId` + `stepId` in Maestro; host table `externalRef` → `(runId, expectedStepId)` as canonical mapping (optional `variables` mirror).
 - **Never hold requests open** — always persist before returning.
-- **Defer `kind: wait`** — validate bridge in a host spike first; engine primitives only if that fails.
+- **Defer new resume primitives** — no `kind: wait` / `DeliverSignal` / async runner / engine callback registry yet.
+- **Next:** custom action type extensibility in schema/validate so create steps (e.g. `vendor-create-session`) model cleanly in YAML.
