@@ -247,7 +247,7 @@ This model fits naturally into:
 - onboarding flows
 - async operational workflows
 
-Multi-day waits (webhooks, approval links, provider callbacks) use the same persist → restore → resume loop — see [Async callbacks design](design/async-callbacks.md).
+Multi-day waits (webhooks, approval links, provider callbacks) use the same persist → restore → resume loop — see [Async callbacks design](design/async-callbacks.md). The bridge pattern (action create + resume step + host `externalRef` table) is validated; hosts should not hold HTTP requests open until a callback arrives.
 
 ---
 

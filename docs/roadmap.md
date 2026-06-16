@@ -16,9 +16,11 @@ See the [changelog](../CHANGELOG.md) for what's already shipped.
 
 - Workflow registry (`pkg/workflow`) — host multiple definitions; `LoadDir`, `Registry`, restore by `RunRecord` workflow id/version
 - Workflow versioning — [design](design/workflow-versioning.md) (host policy for multiple versions)
-- Async callbacks / webhooks — [design](design/async-callbacks.md) (resume without holding a request open)
+- Async callbacks / webhooks — [design](design/async-callbacks.md) (bridge validated; custom action ergonomics next)
 
 ## Next (v0.2-ish)
+
+- Custom action types in workflow YAML (app-owned `onEnter` runners; schema/validate ergonomics) — follow-up to [async callbacks](design/async-callbacks.md#next-core-focus-custom-actions) spike
 - Retries and timers on action steps
 - Better observability and typed variable helpers
 
