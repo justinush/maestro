@@ -251,3 +251,42 @@ func TestLoadDir_SkipsUnsupportedExtensions(t *testing.T) {
 		t.Fatalf("want 1 workflow, got %d", len(reg.List()))
 	}
 }
+
+func TestLoadDir_CustomActionType(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	yaml := `schemaVersion: "0.1"
+id: wf-custom
+version: "1"
+initialStepId: a
+terminalStepIds: [end]
+steps:
+  - id: a
+    kind: action
+    onEnter:
+      - type: vendor-create-session
+        id: x
+  - id: end
+    kind: end
+transitions:
+  - from: a
+    to: end
+    priority: 0
+`
+	writeWorkflowFile(t, dir, "custom.yaml", yaml)
+
+	_, err := workflow.LoadDir(dir, validate.Options{})
+	if err == nil {
+		t.Fatal("want error without allowlist")
+	}
+
+	reg, err := workflow.LoadDir(dir, validate.Options{
+		AllowedActionTypes: []string{"vendor-create-session"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reg.Contains(workflow.Key{ID: "wf-custom", Version: "1"}) {
+		t.Fatal("missing workflow")
+	}
+}
