@@ -51,11 +51,22 @@ func formatSchemaErr(context string, verbose bool, err error) error {
 	return fmt.Errorf("%s: %w\n(full) %s", context, err, err.Error())
 }
 
-// validateJSONSchema validates def against the embedded v0.1 workflow schema.
-func validateJSONSchema(def *definition.WorkflowDefinition, verbose bool) error {
+func loadSchemaDocFromBytes(b []byte, opts Options) (map[string]any, error) {
 	var schemaDoc map[string]any
-	if err := json.Unmarshal(schemas.WorkflowDefinitionV01, &schemaDoc); err != nil {
-		return fmt.Errorf("parse embedded workflow schema: %w", err)
+	if err := json.Unmarshal(b, &schemaDoc); err != nil {
+		return nil, fmt.Errorf("parse workflow schema: %w", err)
+	}
+	if err := extendActionTypeEnum(schemaDoc, opts.AllowedActionTypes); err != nil {
+		return nil, err
+	}
+	return schemaDoc, nil
+}
+
+// validateJSONSchema validates def against the embedded v0.1 workflow schema.
+func validateJSONSchema(def *definition.WorkflowDefinition, opts Options) error {
+	schemaDoc, err := loadSchemaDocFromBytes(schemas.WorkflowDefinitionV01, opts)
+	if err != nil {
+		return err
 	}
 
 	inst, err := jsonInstanceForSchema(def)
@@ -71,23 +82,23 @@ func validateJSONSchema(def *definition.WorkflowDefinition, verbose bool) error 
 	}
 	sch, err := c.Compile(root)
 	if err != nil {
-		return formatSchemaErr("compile embedded workflow schema", verbose, err)
+		return formatSchemaErr("compile embedded workflow schema", opts.Verbose, err)
 	}
 	if err := sch.Validate(inst); err != nil {
-		return formatSchemaErr("schema validation failed", verbose, err)
+		return formatSchemaErr("schema validation failed", opts.Verbose, err)
 	}
 	return nil
 }
 
 // validateJSONSchemaFromPath validates def against the JSON Schema file at schemaPath.
-func validateJSONSchemaFromPath(def *definition.WorkflowDefinition, schemaPath, embeddedIDFallback string, verbose bool) error {
+func validateJSONSchemaFromPath(def *definition.WorkflowDefinition, schemaPath, embeddedIDFallback string, opts Options) error {
 	b, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return fmt.Errorf("read schema file: %w", err)
 	}
-	var schemaDoc map[string]any
-	if err := json.Unmarshal(b, &schemaDoc); err != nil {
-		return fmt.Errorf("parse schema file: %w", err)
+	schemaDoc, err := loadSchemaDocFromBytes(b, opts)
+	if err != nil {
+		return err
 	}
 
 	inst, err := jsonInstanceForSchema(def)
@@ -103,10 +114,10 @@ func validateJSONSchemaFromPath(def *definition.WorkflowDefinition, schemaPath, 
 	}
 	sch, err := c.Compile(root)
 	if err != nil {
-		return formatSchemaErr(fmt.Sprintf("compile schema root %q", root), verbose, err)
+		return formatSchemaErr(fmt.Sprintf("compile schema root %q", root), opts.Verbose, err)
 	}
 	if err := sch.Validate(inst); err != nil {
-		return formatSchemaErr("schema validation failed", verbose, err)
+		return formatSchemaErr("schema validation failed", opts.Verbose, err)
 	}
 	return nil
 }

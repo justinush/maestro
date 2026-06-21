@@ -10,11 +10,16 @@ import (
 // It runs JSON Schema (embedded or opts.SchemaPath), then graph, transition invariants,
 // CEL, stub params, http params, step metadata, and inputSchema checks.
 func WorkflowDefinition(def *definition.WorkflowDefinition, opts Options) error {
+	opts, err := opts.withNormalizedAllowedActionTypes()
+	if err != nil {
+		return err
+	}
+
 	var schemaErr error
 	if opts.SchemaPath != "" {
-		schemaErr = validateJSONSchemaFromPath(def, opts.SchemaPath, workflowSchemaURI, opts.Verbose)
+		schemaErr = validateJSONSchemaFromPath(def, opts.SchemaPath, workflowSchemaURI, opts)
 	} else {
-		schemaErr = validateJSONSchema(def, opts.Verbose)
+		schemaErr = validateJSONSchema(def, opts)
 	}
 
 	return errors.Join(

@@ -15,7 +15,8 @@ func NewCommand() *cobra.Command {
 		Use:   "validate",
 		Short: "Validate a workflow definition",
 		Long: "Decodes a YAML or JSON workflow definition, validates it against JSON Schema (embedded or --schema), " +
-			"runs graph checks (including reachability), compiles CEL guards, validates stub params, and compiles each inputSchema as JSON Schema.",
+			"runs graph checks (including reachability), compiles CEL guards, validates stub params, and compiles each inputSchema as JSON Schema. " +
+			"Pass --allowed-action-type for app-owned onEnter/onExit action types registered in your host.",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if file == "" {
 				return errors.New("required flag: --file / -f")
@@ -27,6 +28,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&file, "file", "f", "", "path to workflow definition (.yaml, .yml, or .json)")
 	cmd.Flags().StringVar(&opts.SchemaPath, "schema", "", "optional path to workflow JSON Schema (defaults to embedded v0.1; root URI is schema $id when set)")
 	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "print richer validation errors (schema, CEL, inputSchema compile)")
+	cmd.Flags().StringSliceVar(&opts.AllowedActionTypes, "allowed-action-type", nil, "app-owned action type allowed in YAML")
 
 	return cmd
 }

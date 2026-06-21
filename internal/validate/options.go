@@ -7,4 +7,9 @@ type Options struct {
 
 	// Verbose includes raw schema validator messages in returned errors.
 	Verbose bool
+
+	// AllowedActionTypes lists app-owned action type strings that may appear in workflow YAML.
+	// Built-in types "stub" and "http" are always valid.
+	// Register a matching runner on engine.Registry before execution.
+	AllowedActionTypes []string
 }

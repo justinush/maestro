@@ -1,0 +1,26 @@
+schemaVersion: "0.1"
+id: custom-action-demo
+version: "1.0.0"
+title: Custom action validation demo
+description: Uses an app-owned onEnter action type.
+
+initialStepId: create-verification
+terminalStepIds:
+  - done
+
+steps:
+  - id: create-verification
+    kind: action
+    onEnter:
+      - type: vendor-create-session
+        id: create-vendor
+        params:
+          provider: demo
+
+  - id: done
+    kind: end
+
+transitions:
+  - from: create-verification
+    to: done
+    priority: 0

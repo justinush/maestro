@@ -59,6 +59,27 @@ func TestWorkflow(t *testing.T) {
 			dataFile:   "invalid_inputschema_compile.yaml",
 			wantErrSub: "inputSchema",
 		},
+		{
+			name:       "valid_custom_action_with_allowlist",
+			dataFile:   "valid_custom_action.yaml",
+			wantErrSub: "",
+			opts: Options{
+				AllowedActionTypes: []string{"vendor-create-session"},
+			},
+		},
+		{
+			name:       "invalid_custom_action_without_allowlist",
+			dataFile:   "invalid_custom_action_type.yaml",
+			wantErrSub: "schema validation",
+		},
+		{
+			name:       "invalid_custom_action_unlisted_type",
+			dataFile:   "valid_custom_action.yaml",
+			wantErrSub: "schema validation",
+			opts: Options{
+				AllowedActionTypes: []string{"other-custom-action"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

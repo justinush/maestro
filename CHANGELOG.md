@@ -7,6 +7,11 @@ Notable Maestro changes live here.
 ### Added
 
 - `pkg/workflow`: workflow registry for hosting multiple workflow definitions in one process (`LoadDir`, `Registry`, lookup by `id` + `version`, `RestoreInstance` with identity checks). Single-workflow `maestro.Load` / `Runtime` APIs are unchanged.
+- `validate.Options.AllowedActionTypes`: opt-in validation for app-owned workflow action types in YAML (extends the embedded v0.1 JSON Schema `action.type` enum at validate time; built-in `stub` and `http` unchanged)
+- CLI `maestro validate --allowed-action-type` (repeatable) for the same allowlist used by `workflow.LoadDir` and `maestro.LoadWithValidate`
+- [Custom action types](docs/design/custom-actions.md) design — register `engine.ActionRunner`, allow types at load time, reference them in `onEnter` / `onExit`
+- [Async callbacks](docs/design/async-callbacks.md) design updates — bridge pattern validated in a host spike; `externalRef` host contract; defer `kind: wait` and related engine primitives
+- [Workflow versioning](docs/design/workflow-versioning.md) design — host policy for multiple workflow versions on restore and new runs
 
 ## [0.1.1] - 2026-05-31
 

@@ -155,6 +155,26 @@ in, err := reg.NewInstance(key, maestro.InstanceOptions{
 
 Your app still owns product routing (for example country + flow type -> `workflow.Key`). Maestro resolves `id` + `version` to a runtime. Persisted runs store `workflowId` and `workflowVersion` on `RunRecord`; resume with `reg.RestoreInstance(rec, maestro.InstanceOptions{...})`.
 
+### Custom action types
+
+Built-in YAML action types are `stub` and `http`. Register app-owned runners on `engine.Registry` and allow them at load time:
+
+```go
+actionReg := engine.NewRegistry()
+actionReg.MustRegister("stub", engine.NewStubRunner())
+actionReg.MustRegister("vendor-create-session", vendorCreateRunner)
+
+reg, err := workflow.LoadDir("workflows", validate.Options{
+    AllowedActionTypes: []string{"vendor-create-session"},
+})
+
+in, err := reg.NewInstance(key, maestro.InstanceOptions{
+    ActionRegistry: actionReg,
+})
+```
+
+See [Custom action types](docs/design/custom-actions.md).
+
 ---
 
 ## Embedding (canonical path)
